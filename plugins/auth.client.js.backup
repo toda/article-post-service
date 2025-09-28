@@ -1,0 +1,29 @@
+// Authentication initialization plugin
+// This ensures auth is initialized on client-side only after the router is ready
+export default defineNuxtPlugin(async (nuxtApp) => {
+  console.log('🎬 AUTH PLUGIN - Starting authentication initialization')
+  console.log('🎬 AUTH PLUGIN - Process client:', process.client)
+  console.log('🎬 AUTH PLUGIN - Window available:', typeof window !== 'undefined')
+
+  // Wait for the router to be ready before initializing auth
+  await nuxtApp.hooks.callHook('app:mounted')
+
+  try {
+    // Get the auth composable
+    console.log('🎬 AUTH PLUGIN - Getting useAuth composable...')
+    const authComposable = useAuth()
+    console.log('🎬 AUTH PLUGIN - useAuth loaded:', authComposable ? 'yes' : 'no')
+
+    if (authComposable && authComposable.initializeAuth) {
+      console.log('🎬 AUTH PLUGIN - Calling initializeAuth()')
+      authComposable.initializeAuth()
+      console.log('🎬 AUTH PLUGIN - initializeAuth() called successfully')
+    } else {
+      console.error('🎬 AUTH PLUGIN - initializeAuth method not available')
+    }
+  } catch (error) {
+    console.error('🎬 AUTH PLUGIN - Error initializing auth:', error)
+  }
+
+  console.log('🎬 AUTH PLUGIN - Authentication initialization complete')
+})

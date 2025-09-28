@@ -1,0 +1,421 @@
+<template>
+  <div class="max-w-4xl mx-auto">
+    <!-- Page Header -->
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-gray-900 mb-2">設定</h1>
+      <p class="text-gray-600">アカウント設定とプライバシー設定を管理します。</p>
+    </div>
+
+    <!-- Loading State -->
+    <div v-if="!isLoggedIn && authLoading" class="flex justify-center py-12">
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+    </div>
+
+    <!-- Authentication Required -->
+    <div v-else-if="!isLoggedIn" class="text-center py-12">
+      <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+      </svg>
+      <h3 class="text-lg font-medium text-gray-900 mb-2">ログインが必要です</h3>
+      <p class="text-gray-500 mb-6">設定にアクセスするにはログインが必要です。</p>
+      <NuxtLink
+        to="/login"
+        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+      >
+        ログイン
+      </NuxtLink>
+    </div>
+
+    <!-- Settings Content -->
+    <div v-else class="space-y-6">
+      <!-- Account Information -->
+      <div class="bg-white rounded-lg border border-gray-200 p-6">
+        <h2 class="text-lg font-medium text-gray-900 mb-6">アカウント情報</h2>
+
+        <!-- Current Email -->
+        <div class="mb-6">
+          <label class="block text-sm font-medium text-gray-700 mb-2">現在のメールアドレス</label>
+          <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <div class="flex items-center space-x-3">
+              <span class="text-gray-900" data-testid="current-email">{{ user?.email }}</span>
+              <span
+                v-if="user?.emailVerified"
+                class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800"
+              >
+                認証済み
+              </span>
+              <span
+                v-else
+                class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800"
+                data-testid="email-verification-warning"
+              >
+                未認証
+              </span>
+            </div>
+            <button
+              v-if="!user?.emailVerified"
+              @click="resendVerification"
+              :disabled="loading"
+              class="text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors"
+              data-testid="resend-verification"
+            >
+              <span v-if="verificationSent">送信済み</span>
+              <span v-else>認証メールを再送</span>
+            </button>
+          </div>
+          <div v-if="verificationSent" class="mt-2 p-3 bg-blue-50 rounded-lg" data-testid="verification-sent">
+            <p class="text-sm text-blue-800">認証メールを送信しました。メールをご確認ください。</p>
+          </div>
+        </div>
+
+        <!-- Change Email -->
+        <div class="mb-6">
+          <label for="newEmail" class="block text-sm font-medium text-gray-700 mb-2">新しいメールアドレス</label>
+          <form @submit.prevent="updateEmail" class="flex space-x-3">
+            <input
+              id="newEmail"
+              v-model="emailForm.newEmail"
+              type="email"
+              placeholder="new@example.com"
+              class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              data-testid="new-email-input"
+            >
+            <button
+              type="submit"
+              :disabled="!emailForm.newEmail || loading"
+              class="px-4 py-2 border border-transparent rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
+              data-testid="update-email"
+            >
+              変更
+            </button>
+          </form>
+        </div>
+
+        <!-- Change Password -->
+        <div>
+          <h3 class="text-base font-medium text-gray-900 mb-4">パスワード変更</h3>
+          <form @submit.prevent="updatePassword" class="space-y-4">
+            <div>
+              <label for="currentPassword" class="block text-sm font-medium text-gray-700 mb-1">現在のパスワード</label>
+              <input
+                id="currentPassword"
+                v-model="passwordForm.currentPassword"
+                type="password"
+                autocomplete="current-password"
+                class="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                data-testid="current-password"
+              >
+            </div>
+            <div>
+              <label for="newPassword" class="block text-sm font-medium text-gray-700 mb-1">新しいパスワード</label>
+              <input
+                id="newPassword"
+                v-model="passwordForm.newPassword"
+                type="password"
+                autocomplete="new-password"
+                class="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                data-testid="new-password"
+              >
+            </div>
+            <div>
+              <label for="confirmPassword" class="block text-sm font-medium text-gray-700 mb-1">新しいパスワード（確認）</label>
+              <input
+                id="confirmPassword"
+                v-model="passwordForm.confirmPassword"
+                type="password"
+                autocomplete="new-password"
+                class="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                data-testid="confirm-password"
+              >
+            </div>
+            <button
+              type="submit"
+              :disabled="!isPasswordFormValid || loading"
+              class="px-4 py-2 border border-transparent rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
+              data-testid="update-password"
+            >
+              パスワードを変更
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Data Export -->
+      <div class="bg-white rounded-lg border border-gray-200 p-6" data-testid="data-export-section">
+        <h2 class="text-lg font-medium text-gray-900 mb-4">データのエクスポート</h2>
+        <p class="text-gray-600 mb-4">あなたのプロフィール情報、記事、コメントなどのデータをダウンロードできます。</p>
+
+        <div v-if="exportResult" class="mb-4 p-4 bg-green-50 rounded-lg">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-green-800">データの準備が完了しました</p>
+              <p class="text-sm text-green-600">{{ new Date().toLocaleDateString('ja-JP') }}にエクスポートされました</p>
+            </div>
+            <a
+              :href="exportResult.downloadUrl"
+              :download="`user-data-${user?.uid}.json`"
+              class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+              data-testid="download-export"
+            >
+              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              ダウンロード
+            </a>
+          </div>
+        </div>
+
+        <button
+          @click="exportUserData"
+          :disabled="loading"
+          class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
+          data-testid="export-data-button"
+        >
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <span v-if="loading">エクスポート中...</span>
+          <span v-else>データをエクスポート</span>
+        </button>
+      </div>
+
+      <!-- Danger Zone -->
+      <div class="bg-white rounded-lg border border-red-200 p-6" data-testid="delete-account-section">
+        <h2 class="text-lg font-medium text-red-900 mb-4">危険な操作</h2>
+
+        <div class="space-y-4">
+          <div>
+            <h3 class="text-base font-medium text-red-900 mb-2">アカウントの削除</h3>
+            <p class="text-red-700 text-sm mb-4">
+              アカウントを削除すると、プロフィール、記事、コメントなどのすべてのデータが完全に削除され、復元できません。
+            </p>
+
+            <button
+              @click="showDeleteConfirmation = true"
+              class="inline-flex items-center px-4 py-2 border border-red-300 rounded-lg text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
+              data-testid="delete-account-button"
+            >
+              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              アカウントを削除
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Delete Confirmation Modal -->
+      <div
+        v-if="showDeleteConfirmation"
+        class="fixed inset-0 z-50 overflow-y-auto"
+        aria-labelledby="modal-title"
+        role="dialog"
+        aria-modal="true"
+      >
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+          <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="showDeleteConfirmation = false"></div>
+          <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full" data-testid="delete-confirmation-modal">
+            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+              <div class="sm:flex sm:items-start">
+                <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                  <svg class="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+                <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                  <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">
+                    アカウントの削除
+                  </h3>
+                  <div class="mt-2">
+                    <p class="text-sm text-gray-500">
+                      この操作は取り消せません。すべてのデータが完全に削除されます。
+                    </p>
+                    <p class="text-sm text-gray-500 mt-2">
+                      続行するには「<strong>DELETE</strong>」と入力してください。
+                    </p>
+                    <input
+                      v-model="deleteConfirmationText"
+                      type="text"
+                      placeholder="DELETE"
+                      class="mt-3 block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      data-testid="delete-confirmation-input"
+                    >
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+              <button
+                @click="confirmDeleteAccount"
+                :disabled="deleteConfirmationText !== 'DELETE' || loading"
+                class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 transition-colors"
+                data-testid="confirm-delete-button"
+              >
+                <span v-if="loading">削除中...</span>
+                <span v-else>削除する</span>
+              </button>
+              <button
+                @click="showDeleteConfirmation = false"
+                class="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm transition-colors"
+              >
+                キャンセル
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuth } from '~/composables/useAuth'
+import { useUsers } from '~/composables/useUsers'
+
+// SEO
+useHead({
+  title: '設定 - Article Platform',
+  meta: [
+    {
+      name: 'description',
+      content: 'アカウント設定とプライバシー設定を管理します。'
+    }
+  ]
+})
+
+// Router
+const router = useRouter()
+
+// Composables
+const {
+  user,
+  isLoggedIn,
+  updateEmail: updateUserEmail,
+  updatePassword: updateUserPassword,
+  sendEmailVerification,
+  deleteAccount,
+  reauthenticate,
+  loading: authLoading
+} = useAuth()
+const {
+  exportUserData: exportData,
+  deleteUserData,
+  loading
+} = useUsers()
+
+// State
+const emailForm = ref({
+  newEmail: ''
+})
+
+const passwordForm = ref({
+  currentPassword: '',
+  newPassword: '',
+  confirmPassword: ''
+})
+
+const verificationSent = ref(false)
+const exportResult = ref(null)
+const showDeleteConfirmation = ref(false)
+const deleteConfirmationText = ref('')
+
+// Computed
+const isPasswordFormValid = computed(() => {
+  return passwordForm.value.currentPassword &&
+         passwordForm.value.newPassword &&
+         passwordForm.value.confirmPassword &&
+         passwordForm.value.newPassword === passwordForm.value.confirmPassword &&
+         passwordForm.value.newPassword.length >= 6
+})
+
+// Methods
+const updateEmail = async () => {
+  if (!emailForm.value.newEmail) return
+
+  try {
+    await updateUserEmail(emailForm.value.newEmail)
+    emailForm.value.newEmail = ''
+    // TODO: Show success message
+    console.log('Email updated successfully')
+  } catch (error) {
+    console.error('Failed to update email:', error)
+    // TODO: Show error message
+  }
+}
+
+const updatePassword = async () => {
+  if (!isPasswordFormValid.value) return
+
+  try {
+    // Reauthenticate first
+    await reauthenticate(passwordForm.value.currentPassword)
+
+    // Update password
+    await updateUserPassword(passwordForm.value.newPassword)
+
+    // Clear form
+    passwordForm.value = {
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    }
+
+    // TODO: Show success message
+    console.log('Password updated successfully')
+  } catch (error) {
+    console.error('Failed to update password:', error)
+    // TODO: Show error message
+  }
+}
+
+const resendVerification = async () => {
+  try {
+    await sendEmailVerification()
+    verificationSent.value = true
+    setTimeout(() => {
+      verificationSent.value = false
+    }, 5000)
+  } catch (error) {
+    console.error('Failed to send verification email:', error)
+  }
+}
+
+const exportUserData = async () => {
+  if (!user.value) return
+
+  try {
+    const result = await exportData(user.value.uid)
+    exportResult.value = result
+  } catch (error) {
+    console.error('Failed to export user data:', error)
+  }
+}
+
+const confirmDeleteAccount = async () => {
+  if (deleteConfirmationText.value !== 'DELETE' || !user.value) return
+
+  try {
+    // First delete user data from Firestore
+    await deleteUserData(user.value.uid)
+
+    // Then delete the auth account
+    await deleteAccount()
+
+    // Redirect to home page
+    await router.push('/')
+  } catch (error) {
+    console.error('Failed to delete account:', error)
+    // TODO: Show error message
+  } finally {
+    showDeleteConfirmation.value = false
+    deleteConfirmationText.value = ''
+  }
+}
+
+// Lifecycle
+onMounted(() => {
+  // Any initialization if needed
+})
+</script>

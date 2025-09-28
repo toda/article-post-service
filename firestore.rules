@@ -1,0 +1,67 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 開発環境用: すべて許可（一時的な設定）
+    match /{document=**} {
+      allow read, write: if true;
+    }
+
+    // 記事コレクション - 読み取りは全員、書き込みは認証済みユーザーのみ
+    match /articles/{articleId} {
+      allow read: if true;
+      allow create: if request.auth != null &&
+        request.auth.uid == request.resource.data.authorId &&
+        request.resource.data.keys().hasAll(['title', 'content', 'authorId', 'createdAt', 'updatedAt']);
+      allow update, delete: if request.auth != null &&
+        request.auth.uid == resource.data.authorId;
+      // いいね数の更新を認証済みユーザーに許可
+      allow update: if request.auth != null &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likeCount']);
+    }
+
+    // コメントコレクション - 読み取りは全員、書き込みは認証済みユーザーのみ
+    match /comments/{commentId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null &&
+        request.auth.uid == resource.data.authorId;
+      // いいね数の更新を認証済みユーザーに許可
+      allow update: if request.auth != null &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likeCount']);
+      // 認証済みユーザーがコメントを削除できるようにする（記事削除時のカスケード削除のため）
+      allow delete: if request.auth != null;
+    }
+
+    // タグコレクション - 記事作成時の統計更新のため
+    match /tags/{tagId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // カテゴリコレクション - 記事作成時の統計更新のため
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // いいねコレクション - 記事のいいね管理
+    match /likes/{likeId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+      // 認証済みユーザーがいいねを削除できるようにする（記事削除時のカスケード削除のため）
+      allow delete: if request.auth != null;
+    }
+
+    // コメントいいねコレクション - コメントのいいね管理
+    match /commentLikes/{likeId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // フォローコレクション - ユーザーフォロー管理
+    match /follows/{followId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "name": "article-platform",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "test": "jest",
+    "test:unit": "jest --testPathPattern=tests/unit",
+    "test:regression": "./scripts/run-regression-tests.sh",
+    "test:watch": "jest --watch",
+    "test:integration": "jest --config jest.integration.config.cjs",
+    "test:e2e": "playwright test",
+    "lint": "eslint . --ext .js,.ts,.vue",
+    "lint:fix": "eslint . --ext .js,.ts,.vue --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "@vueuse/firebase": "^14.0.0-alpha.0",
+    "firebase": "^12.2.1",
+    "nuxt": "^3.13.0",
+    "vue": "^3.4.0",
+    "vue-router": "^4.4.0"
+  },
+  "devDependencies": {
+    "@nuxtjs/tailwindcss": "^6.14.0",
+    "@tailwindcss/typography": "^0.5.16",
+    "@vue/test-utils": "^2.4.0",
+    "@vue/vue3-jest": "^29.0.0",
+    "autoprefixer": "^10.4.21",
+    "eslint": "^8.0.0",
+    "jest": "^29.0.0",
+    "jsdom": "^27.0.0",
+    "postcss": "^8.5.6",
+    "prettier": "^3.0.0",
+    "tailwindcss": "^3.4.17",
+    "ts-jest": "^29.1.0"
+  },
+  "version": "1.0.0",
+  "description": "Zenn/Qiita style technical article platform",
+  "keywords": [
+    "nuxt",
+    "vue",
+    "firebase",
+    "article",
+    "platform"
+  ],
+  "author": "",
+  "license": "MIT"
+}

@@ -1,0 +1,635 @@
+<template>
+  <div class="max-w-6xl mx-auto">
+    <!-- Page Header -->
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-gray-900 mb-2">記事を書く</h1>
+      <p class="text-gray-600">あなたの知識を記事にして、コミュニティと共有しましょう。</p>
+    </div>
+
+    <!-- Loading State -->
+    <div v-if="!isLoggedIn && authLoading" class="flex justify-center py-12">
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+    </div>
+
+    <!-- Email Verification Required -->
+    <div v-else-if="isLoggedIn && user && !user.emailVerified" class="text-center py-12">
+      <svg class="mx-auto h-12 w-12 text-yellow-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.268 15.5c-.77.833.192 2.5 1.732 2.5z" />
+      </svg>
+      <h3 class="text-lg font-medium text-gray-900 mb-2">メール認証が必要です</h3>
+      <p class="text-gray-500 mb-6">記事を投稿するには、メールアドレスの認証が必要です。<br>登録時に送信されたメールの認証リンクをクリックしてください。</p>
+      <div class="space-x-4">
+        <NuxtLink
+          to="/login"
+          class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors"
+        >
+          ログインページへ
+        </NuxtLink>
+      </div>
+    </div>
+
+    <!-- Authentication Required -->
+    <div v-else-if="!isLoggedIn" class="text-center py-12">
+      <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+      </svg>
+      <h3 class="text-lg font-medium text-gray-900 mb-2">ログインが必要です</h3>
+      <p class="text-gray-500 mb-6">記事を投稿するにはログインが必要です。</p>
+      <div class="space-x-4">
+        <NuxtLink
+          to="/login"
+          class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+        >
+          ログイン
+        </NuxtLink>
+        <NuxtLink
+          to="/signup"
+          class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+        >
+          新規登録
+        </NuxtLink>
+      </div>
+    </div>
+
+    <!-- Article Editor -->
+    <div v-else-if="isLoggedIn && user && user.emailVerified" class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      <!-- General Error Message -->
+      <div v-if="errors.general" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md mb-4 mx-6 mt-6">
+        <div class="flex">
+          <svg class="w-5 h-5 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+          </svg>
+          <span>{{ errors.general }}</span>
+        </div>
+      </div>
+
+      <form @submit.prevent="handleSubmit">
+        <!-- Article Header -->
+        <div class="p-6 border-b border-gray-200">
+          <!-- Title -->
+          <div class="mb-6">
+            <label for="title" class="block text-sm font-medium text-gray-700 mb-2">
+              タイトル <span class="text-red-500">*</span>
+            </label>
+            <input
+              id="title"
+              v-model="form.title"
+              type="text"
+              placeholder="記事のタイトルを入力してください"
+              class="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              :class="{ 'border-red-300': errors.title }"
+              data-testid="title-input"
+              required
+            >
+            <p v-if="errors.title" class="mt-1 text-sm text-red-600">{{ errors.title }}</p>
+          </div>
+
+          <!-- Category and Tags Row -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <!-- Category -->
+            <div>
+              <label for="category" class="block text-sm font-medium text-gray-700 mb-2">
+                カテゴリ <span class="text-red-500">*</span>
+              </label>
+              <select
+                id="category"
+                v-model="form.categoryId"
+                class="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                :class="{ 'border-red-300': errors.categoryId }"
+                :disabled="loading || categories.length === 0"
+                data-testid="category-select"
+                required
+              >
+                <option value="" v-if="loading">読み込み中...</option>
+                <option value="" v-else-if="categories.length === 0">カテゴリの読み込みに失敗しました</option>
+                <option value="" v-else>カテゴリを選択してください</option>
+                <option v-for="category in categories" :key="category.id" :value="category.id">
+                  {{ category.name }}
+                </option>
+              </select>
+              <p v-if="errors.categoryId" class="mt-1 text-sm text-red-600">{{ errors.categoryId }}</p>
+            </div>
+
+            <!-- Tags -->
+            <div>
+              <label for="tags" class="block text-sm font-medium text-gray-700 mb-2">
+                タグ（最大5個）
+              </label>
+              <div class="relative">
+                <input
+                  id="tags"
+                  v-model="tagInput"
+                  @keydown.enter.prevent="addTag"
+                  @keydown.tab.prevent="addTag"
+                  @keydown.comma.prevent="addTag"
+                  type="text"
+                  placeholder="タグを入力してEnterキーで追加"
+                  class="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  data-testid="tags-input"
+                >
+              </div>
+              <div v-if="form.tags.length > 0" class="flex flex-wrap gap-2 mt-2">
+                <span
+                  v-for="(tag, index) in form.tags"
+                  :key="index"
+                  class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800"
+                  data-testid="tag-item"
+                >
+                  #{{ tag }}
+                  <button
+                    @click="removeTag(index)"
+                    type="button"
+                    class="ml-2 inline-flex items-center justify-center w-4 h-4 rounded-full text-blue-600 hover:bg-blue-200 focus:outline-none"
+                  >
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </span>
+              </div>
+              <p class="mt-1 text-sm text-gray-500">
+                {{ form.tags.length }}/5 個のタグ
+              </p>
+            </div>
+          </div>
+
+          <!-- Meta Description -->
+          <div class="mb-6">
+            <label for="metaDescription" class="block text-sm font-medium text-gray-700 mb-2">
+              説明文（SEO用）
+            </label>
+            <textarea
+              id="metaDescription"
+              v-model="form.metaDescription"
+              rows="2"
+              placeholder="記事の概要を150文字以内で入力してください"
+              class="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+              maxlength="150"
+            ></textarea>
+            <p class="mt-1 text-sm text-gray-500 text-right">
+              {{ form.metaDescription.length }}/150文字
+            </p>
+          </div>
+        </div>
+
+        <!-- Editor Area -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-gray-200">
+          <!-- Markdown Editor -->
+          <div class="p-6">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-lg font-medium text-gray-900">マークダウン</h3>
+              <div class="flex items-center space-x-2">
+                <button
+                  @click="insertMarkdown('**', '**')"
+                  type="button"
+                  class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                  title="太字"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 4h8a4 4 0 010 8H6z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 12h9a4 4 0 010 8H6z" />
+                  </svg>
+                </button>
+                <button
+                  @click="insertMarkdown('*', '*')"
+                  type="button"
+                  class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                  title="斜体"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 4l4 16m-4-8h8" />
+                  </svg>
+                </button>
+                <button
+                  @click="insertMarkdown('`', '`')"
+                  type="button"
+                  class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                  title="インラインコード"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                  </svg>
+                </button>
+                <button
+                  @click="insertMarkdown('```\n', '\n```')"
+                  type="button"
+                  class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                  title="コードブロック"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <textarea
+              ref="editorRef"
+              v-model="form.content"
+              placeholder="記事の内容をマークダウン形式で入力してください..."
+              class="w-full h-96 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none font-mono text-sm"
+              :class="{ 'border-red-300': errors.content }"
+              data-testid="content-textarea"
+              required
+            ></textarea>
+            <p v-if="errors.content" class="mt-1 text-sm text-red-600">{{ errors.content }}</p>
+          </div>
+
+          <!-- Preview -->
+          <div class="p-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">プレビュー</h3>
+            <div class="prose prose-sm max-w-none h-96 overflow-y-auto border border-gray-200 rounded-lg p-4 bg-gray-50" data-testid="preview-area">
+              <div v-if="form.content" v-html="renderedContent"></div>
+              <p v-else class="text-gray-500 italic">ここにプレビューが表示されます</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="p-6 border-t border-gray-200 bg-gray-50">
+          <div class="flex items-center justify-between">
+            <!-- Publication Status -->
+            <div class="flex items-center space-x-4">
+              <label class="flex items-center">
+                <input
+                  v-model="form.isPublic"
+                  type="checkbox"
+                  class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  data-testid="public-checkbox"
+                >
+                <span class="ml-2 text-sm text-gray-700">記事を公開する</span>
+              </label>
+              <span v-if="!form.isPublic" class="text-sm text-gray-500">
+                非公開として保存されます
+              </span>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex items-center space-x-3">
+              <!-- Auto-save Status -->
+              <span v-if="autoSaveStatus" class="text-sm text-gray-500">
+                {{ autoSaveStatus }}
+              </span>
+
+              <!-- Save Draft -->
+              <button
+                @click="saveDraft"
+                type="button"
+                :disabled="loading"
+                class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
+                data-testid="save-draft"
+              >
+                下書き保存
+              </button>
+
+              <!-- Publish -->
+              <button
+                type="submit"
+                :disabled="loading || !canPublish"
+                class="px-6 py-2 border border-transparent rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
+                data-testid="publish-button"
+              >
+                <span v-if="loading">保存中...</span>
+                <span v-else-if="form.isPublic">記事を公開</span>
+                <span v-else>下書きを保存</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import { useAuth } from '~/composables/useAuth'
+import { useArticles } from '~/composables/useArticles'
+import { useMarkdown } from '~/composables/useMarkdown'
+
+// SEO
+useHead({
+  title: '記事を書く - Article Platform',
+  meta: [
+    {
+      name: 'description',
+      content: '技術記事を投稿して、知識をコミュニティと共有しましょう。'
+    }
+  ]
+})
+
+// Composables
+const { user, isLoggedIn, loading: authLoading } = useAuth()
+const { createArticle, listCategories, initializeCategories, loading } = useArticles()
+const { renderMarkdown } = useMarkdown()
+
+// Refs
+const editorRef = ref(null)
+
+// State
+const form = ref({
+  title: '',
+  content: '',
+  categoryId: '',
+  tags: [],
+  metaDescription: '',
+  isPublic: true
+})
+
+const tagInput = ref('')
+const categories = ref([])
+const errors = ref({})
+const autoSaveStatus = ref('')
+
+// Computed
+const canPublish = computed(() => {
+  return form.value.title.trim() &&
+         form.value.content.trim() &&
+         form.value.categoryId &&
+         form.value.tags.length <= 5
+})
+
+const renderedContent = computed(() => {
+  return renderMarkdown(form.value.content)
+})
+
+// Methods
+const validateForm = () => {
+  errors.value = {}
+
+  if (!form.value.title.trim()) {
+    errors.value.title = 'タイトルは必須です'
+  }
+
+  if (!form.value.content.trim()) {
+    errors.value.content = '記事の内容は必須です'
+  }
+
+  if (!form.value.categoryId) {
+    errors.value.categoryId = 'カテゴリは必須です'
+  }
+
+  if (form.value.tags.length > 5) {
+    errors.value.tags = 'タグは最大5個までです'
+  }
+
+  return Object.keys(errors.value).length === 0
+}
+
+const addTag = () => {
+  const tag = tagInput.value.trim().toLowerCase()
+  if (tag && !form.value.tags.includes(tag) && form.value.tags.length < 5) {
+    form.value.tags.push(tag)
+    tagInput.value = ''
+  }
+}
+
+const removeTag = (index) => {
+  form.value.tags.splice(index, 1)
+}
+
+const insertMarkdown = (before, after) => {
+  const textarea = editorRef.value
+  if (!textarea) return
+
+  const start = textarea.selectionStart
+  const end = textarea.selectionEnd
+  const text = textarea.value
+  const selectedText = text.substring(start, end)
+
+  const newText = text.substring(0, start) + before + selectedText + after + text.substring(end)
+  form.value.content = newText
+
+  // Focus and set cursor position
+  nextTick(() => {
+    textarea.focus()
+    const newCursorPos = start + before.length + selectedText.length
+    textarea.setSelectionRange(newCursorPos, newCursorPos)
+  })
+}
+
+const saveDraft = async () => {
+  try {
+    form.value.isPublic = false
+    await handleSubmit()
+  } catch (error) {
+    console.error('Failed to save draft:', error)
+  }
+}
+
+const handleSubmit = async () => {
+  if (!validateForm()) return
+
+  try {
+    const articleData = {
+      title: form.value.title.trim(),
+      content: form.value.content.trim(),
+      categoryId: form.value.categoryId,
+      tags: form.value.tags,
+      metaDescription: form.value.metaDescription.trim(),
+      isPublic: form.value.isPublic
+    }
+
+    const article = await createArticle(articleData)
+
+    // Clear draft on successful publication
+    if (form.value.isPublic) {
+      clearDraft()
+      console.log('✅ Article published, draft cleared')
+    }
+
+    // Redirect to the created article
+    await navigateTo(`/articles/${article.id}`)
+  } catch (error) {
+    console.error('Failed to create article:', error)
+    // Handle specific error cases
+    if (error.code === 'article/title-required') {
+      errors.value.title = 'タイトルは必須です'
+    } else if (error.code === 'article/content-required') {
+      errors.value.content = '記事の内容は必須です'
+    } else if (error.code === 'article/category-invalid') {
+      errors.value.categoryId = '無効なカテゴリです'
+    }
+  }
+}
+
+// Auto-save functionality
+let autoSaveTimeout = null
+
+const autoSave = () => {
+  if (!canPublish.value) return
+
+  clearTimeout(autoSaveTimeout)
+  autoSaveTimeout = setTimeout(async () => {
+    try {
+      autoSaveStatus.value = '自動保存中...'
+      // In a real implementation, this would save to localStorage or server
+      localStorage.setItem('article-draft', JSON.stringify(form.value))
+      autoSaveStatus.value = '自動保存完了'
+      setTimeout(() => {
+        autoSaveStatus.value = ''
+      }, 2000)
+    } catch (error) {
+      autoSaveStatus.value = '自動保存失敗'
+      setTimeout(() => {
+        autoSaveStatus.value = ''
+      }, 2000)
+    }
+  }, 2000)
+}
+
+// Load draft from localStorage
+const loadDraft = () => {
+  try {
+    const draft = localStorage.getItem('article-draft')
+    if (draft) {
+      const parsedDraft = JSON.parse(draft)
+      form.value = { ...form.value, ...parsedDraft }
+    }
+  } catch (error) {
+    console.error('Failed to load draft:', error)
+  }
+}
+
+// Watch for changes and trigger auto-save
+watch(
+  () => [form.value.title, form.value.content, form.value.categoryId, form.value.tags],
+  () => {
+    autoSave()
+  },
+  { deep: true }
+)
+
+// Prevent accidental navigation
+const beforeUnloadHandler = (event) => {
+  if (form.value.title || form.value.content) {
+    event.preventDefault()
+    event.returnValue = ''
+  }
+}
+
+// Clear form data
+const clearForm = () => {
+  form.value = {
+    title: '',
+    content: '',
+    categoryId: '',
+    tags: [],
+    metaDescription: '',
+    isPublic: true
+  }
+  errors.value = {}
+  autoSaveStatus.value = ''
+  console.log('📝 Form cleared')
+}
+
+// Clear draft from localStorage
+const clearDraft = () => {
+  try {
+    localStorage.removeItem('article-draft')
+    console.log('📝 Draft cleared from localStorage')
+  } catch (error) {
+    console.error('Failed to clear draft:', error)
+  }
+}
+
+// Lifecycle
+onMounted(async () => {
+  try {
+    console.log('🔄 Initializing write page...')
+
+    // Always clear form first to ensure clean state
+    clearForm()
+    clearDraft() // Also clear any stored drafts to prevent old data
+
+    // Initialize categories in Firestore
+    try {
+      await initializeCategories()
+      console.log('✅ Categories initialized in Firestore')
+    } catch (initError) {
+      console.error('❌ Failed to initialize categories:', initError)
+      throw new Error(`Category initialization failed: ${initError.message}`)
+    }
+
+    // Load categories
+    try {
+      const loadedCategories = await listCategories()
+      categories.value = loadedCategories
+      console.log('✅ Categories loaded:', loadedCategories.length)
+
+      if (!loadedCategories || loadedCategories.length === 0) {
+        throw new Error('No categories returned from listCategories')
+      }
+    } catch (loadError) {
+      console.error('❌ Failed to load categories:', loadError)
+      throw new Error(`Category loading failed: ${loadError.message}`)
+    }
+
+    // Only load draft if query parameter explicitly requests it
+    const route = useRoute()
+    const loadDraftFlag = route?.query?.draft === 'true'
+
+    if (loadDraftFlag) {
+      loadDraft()
+      console.log('📝 Draft loaded from localStorage (explicitly requested)')
+    } else {
+      console.log('📝 Starting with fresh form (no draft loading)')
+    }
+
+    // Add beforeunload listener
+    window.addEventListener('beforeunload', beforeUnloadHandler)
+  } catch (error) {
+    console.error('❌ Failed to initialize editor:', error)
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      stack: error.stack,
+      fullError: error
+    })
+    // Show user-friendly error with technical details for debugging
+    errors.value.general = `エディタの初期化に失敗しました: ${error.message || error.code || '不明なエラー'}`
+  }
+})
+
+onBeforeUnmount(() => {
+  clearTimeout(autoSaveTimeout)
+  window.removeEventListener('beforeunload', beforeUnloadHandler)
+})
+</script>
+
+<style scoped>
+.prose h1 {
+  @apply text-2xl font-bold text-gray-900 mt-6 mb-4;
+}
+
+.prose h2 {
+  @apply text-xl font-bold text-gray-900 mt-5 mb-3;
+}
+
+.prose h3 {
+  @apply text-lg font-bold text-gray-900 mt-4 mb-2;
+}
+
+.prose p {
+  @apply text-gray-700 mb-3 leading-relaxed;
+}
+
+.prose code {
+  @apply bg-gray-100 text-gray-800 px-1 py-0.5 rounded text-sm;
+}
+
+.prose pre {
+  @apply bg-gray-900 text-gray-100 p-3 rounded-lg overflow-x-auto mb-3;
+}
+
+.prose pre code {
+  @apply bg-transparent text-inherit p-0;
+}
+
+.prose strong {
+  @apply font-semibold text-gray-900;
+}
+
+.prose em {
+  @apply italic;
+}
+</style>
