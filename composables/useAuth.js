@@ -21,7 +21,7 @@ import {
   reauthenticateWithCredential,
   EmailAuthProvider
 } from 'firebase/auth'
-import { doc, getDoc, setDoc, deleteDoc, query, where, collection, getDocs } from 'firebase/firestore'
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, query, where, collection, getDocs } from 'firebase/firestore'
 import { getFirebaseAuth, getFirebaseFirestore } from '~/utils/firebase'
 
 // Global state
@@ -344,8 +344,17 @@ export function useAuth() {
           const userSnapshot = await getDoc(userDoc)
           if (userSnapshot.exists()) {
             const firestoreData = userSnapshot.data()
-            if (!firestoreData.emailVerified) {
-              console.log('❌ Email not verified in Firestore, signing out user and rejecting login')
+
+            // If Firebase Auth shows verified but Firestore doesn't, sync Firestore
+            if (!firestoreData.emailVerified && user.emailVerified) {
+              console.log('🔄 Firebase Auth shows email verified but Firestore does not. Syncing Firestore...')
+              await updateDoc(userDoc, {
+                emailVerified: true,
+                updatedAt: new Date()
+              })
+              console.log('✅ Firestore emailVerified status updated to true')
+            } else if (!firestoreData.emailVerified && !user.emailVerified) {
+              console.log('❌ Email not verified in both Firebase Auth and Firestore, rejecting login')
               await signOut(auth)
               throw {
                 code: AuthErrorCodes.EMAIL_NOT_VERIFIED,
@@ -521,6 +530,7 @@ export function useAuth() {
         throw new Error(AuthErrorCodes.UNAUTHORIZED)
       }
 
+      console.log('📧 Updating email to:', newEmail)
       await updateEmail(auth.currentUser, newEmail)
 
       // Update user document
@@ -533,8 +543,10 @@ export function useAuth() {
 
       // Send verification email
       await sendEmailVerification(auth.currentUser)
+      console.log('✅ Email update completed, verification email sent')
 
     } catch (error) {
+      console.error('❌ Failed to update email:', error)
       setError(error)
       throw error
     }
