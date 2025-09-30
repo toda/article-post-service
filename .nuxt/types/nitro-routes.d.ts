@@ -7,6 +7,9 @@ declare module "nitropack/types" {
       'get': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/proxy-image.get').default>>>>
       'default': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/proxy-image').default>>>>
     }
+    '/api/upload-icon': {
+      'post': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/upload-icon.post').default>>>>
+    }
     '/__nuxt_error': {
       'default': Simplify<Serialize<Awaited<ReturnType<typeof import('../../node_modules/nuxt/dist/core/runtime/nitro/handlers/renderer').default>>>>
     }

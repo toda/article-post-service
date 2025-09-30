@@ -1,10 +1,13 @@
 import process from 'node:process';globalThis._importMeta_={url:import.meta.url,env:process.env};import { tmpdir } from 'node:os';
-import { defineEventHandler, handleCacheHeaders, splitCookiesString, createEvent, fetchWithEvent, isEvent, eventHandler, setHeaders, sendRedirect, proxyRequest, getRequestHeader, setResponseHeaders, setResponseStatus, send, getRequestHeaders, setResponseHeader, appendResponseHeader, getRequestURL, getResponseHeader, removeResponseHeader, createError, getQuery as getQuery$1, readBody, createApp, createRouter as createRouter$1, toNodeListener, lazyEventHandler, getResponseStatus, getRouterParam, setHeader, getResponseStatusText } from 'file:///home/toda/work/claude/first-speckit/article-platform/node_modules/h3/dist/index.mjs';
+import { defineEventHandler, handleCacheHeaders, splitCookiesString, createEvent, fetchWithEvent, isEvent, eventHandler, setHeaders, sendRedirect, proxyRequest, getRequestHeader, setResponseHeaders, setResponseStatus, send, getRequestHeaders, setResponseHeader, appendResponseHeader, getRequestURL, getResponseHeader, removeResponseHeader, createError, getQuery as getQuery$1, readBody, createApp, createRouter as createRouter$1, toNodeListener, lazyEventHandler, getResponseStatus, getRouterParam, setHeader, getHeader, readMultipartFormData, getResponseStatusText } from 'file:///home/toda/work/claude/first-speckit/article-platform/node_modules/h3/dist/index.mjs';
 import { Server } from 'node:http';
 import { resolve, dirname, join } from 'node:path';
 import nodeCrypto from 'node:crypto';
 import { parentPort, threadId } from 'node:worker_threads';
 import { escapeHtml } from 'file:///home/toda/work/claude/first-speckit/article-platform/node_modules/@vue/shared/dist/shared.cjs.js';
+import { initializeApp } from 'file:///home/toda/work/claude/first-speckit/article-platform/node_modules/firebase-admin/lib/esm/app/index.js';
+import { getAuth } from 'file:///home/toda/work/claude/first-speckit/article-platform/node_modules/firebase-admin/lib/esm/auth/index.js';
+import { getStorage } from 'file:///home/toda/work/claude/first-speckit/article-platform/node_modules/firebase-admin/lib/esm/storage/index.js';
 import { createRenderer, getRequestDependencies, getPreloadLinks, getPrefetchLinks } from 'file:///home/toda/work/claude/first-speckit/article-platform/node_modules/vue-bundle-renderer/dist/runtime.mjs';
 import { parseURL, withoutBase, joinURL, getQuery, withQuery, withTrailingSlash, decodePath, withLeadingSlash, withoutTrailingSlash, joinRelativeURL } from 'file:///home/toda/work/claude/first-speckit/article-platform/node_modules/ufo/dist/index.mjs';
 import { renderToString } from 'file:///home/toda/work/claude/first-speckit/article-platform/node_modules/vue/server-renderer/index.mjs';
@@ -1532,12 +1535,14 @@ async function getIslandContext(event) {
 
 const _lazy_wWjnMN = () => Promise.resolve().then(function () { return proxyImage_get$1; });
 const _lazy_nZmDnS = () => Promise.resolve().then(function () { return proxyImage$1; });
+const _lazy_xdYcqW = () => Promise.resolve().then(function () { return uploadIcon_post$1; });
 const _lazy_5Fjg3q = () => Promise.resolve().then(function () { return renderer$1; });
 
 const handlers = [
   { route: '', handler: _Zkgz3F, lazy: false, middleware: true, method: undefined },
   { route: '/api/proxy-image', handler: _lazy_wWjnMN, lazy: true, middleware: false, method: "get" },
   { route: '/api/proxy-image', handler: _lazy_nZmDnS, lazy: true, middleware: false, method: undefined },
+  { route: '/api/upload-icon', handler: _lazy_xdYcqW, lazy: true, middleware: false, method: "post" },
   { route: '/__nuxt_error', handler: _lazy_5Fjg3q, lazy: true, middleware: false, method: undefined },
   { route: '/__nuxt_island/**', handler: _SxA8c9, lazy: false, middleware: false, method: undefined },
   { route: '/**', handler: _lazy_5Fjg3q, lazy: true, middleware: false, method: undefined }
@@ -1990,6 +1995,120 @@ const proxyImage = defineEventHandler(async (event) => {
 const proxyImage$1 = /*#__PURE__*/Object.freeze(/*#__PURE__*/Object.defineProperty({
   __proto__: null,
   default: proxyImage
+}, Symbol.toStringTag, { value: 'Module' }));
+
+let adminApp = null;
+function getAdminApp() {
+  if (!adminApp) {
+    try {
+      adminApp = initializeApp({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        storageBucket: process.env.FIREBASE_STORAGE_BUCKET
+      }, "admin-upload");
+    } catch (error) {
+      if (error.code !== "app/duplicate-app") {
+        throw error;
+      }
+    }
+  }
+  return adminApp;
+}
+const uploadIcon_post = defineEventHandler(async (event) => {
+  var _a;
+  console.log("\u{1F4E4} Upload Icon API called");
+  try {
+    const authHeader = getHeader(event, "authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      throw createError({
+        statusCode: 401,
+        statusMessage: "\u8A8D\u8A3C\u30C8\u30FC\u30AF\u30F3\u304C\u5FC5\u8981\u3067\u3059"
+      });
+    }
+    const idToken = authHeader.replace("Bearer ", "");
+    const app = getAdminApp();
+    const auth = getAuth(app);
+    const decodedToken = await auth.verifyIdToken(idToken);
+    if (!decodedToken.email_verified) {
+      throw createError({
+        statusCode: 403,
+        statusMessage: "\u30E1\u30FC\u30EB\u30A2\u30C9\u30EC\u30B9\u306E\u8A8D\u8A3C\u304C\u5FC5\u8981\u3067\u3059"
+      });
+    }
+    const formData = await readMultipartFormData(event);
+    if (!formData) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: "\u30D5\u30A9\u30FC\u30E0\u30C7\u30FC\u30BF\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093"
+      });
+    }
+    let file = null;
+    for (const field of formData) {
+      if (field.name === "file") {
+        file = field;
+        break;
+      }
+    }
+    if (!file) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: "\u30D5\u30A1\u30A4\u30EB\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093"
+      });
+    }
+    console.log("\u{1F4E4} Upload request:", {
+      fileName: file.filename,
+      fileSize: file.data.length,
+      userId: decodedToken.uid
+    });
+    const fileExtension = ((_a = file.filename) == null ? void 0 : _a.split(".").pop()) || "jpg";
+    const fileName = `icon.${fileExtension}`;
+    const filePath = `user-icons/${decodedToken.uid}/${fileName}`;
+    const storage = getStorage(app);
+    const bucket = storage.bucket();
+    const fileRef = bucket.file(filePath);
+    await fileRef.save(file.data, {
+      metadata: {
+        contentType: file.type || "application/octet-stream",
+        metadata: {
+          uploadedBy: decodedToken.uid,
+          uploadedAt: (/* @__PURE__ */ new Date()).toISOString()
+        }
+      }
+    });
+    const [downloadURL] = await fileRef.getSignedUrl({
+      action: "read",
+      expires: "03-09-2491"
+      // 長期間有効なURL
+    });
+    console.log("\u2705 Upload successful via Firebase Admin SDK");
+    return {
+      success: true,
+      downloadURL,
+      filePath
+    };
+  } catch (error) {
+    console.error("\u274C Upload error:", error);
+    if (error.code === "auth/id-token-expired") {
+      throw createError({
+        statusCode: 401,
+        statusMessage: "\u8A8D\u8A3C\u30C8\u30FC\u30AF\u30F3\u304C\u671F\u9650\u5207\u308C\u3067\u3059"
+      });
+    }
+    if (error.code === "auth/id-token-revoked") {
+      throw createError({
+        statusCode: 401,
+        statusMessage: "\u8A8D\u8A3C\u30C8\u30FC\u30AF\u30F3\u304C\u7121\u52B9\u3067\u3059"
+      });
+    }
+    throw createError({
+      statusCode: error.statusCode || 500,
+      statusMessage: error.message || "\u30A2\u30C3\u30D7\u30ED\u30FC\u30C9\u306B\u5931\u6557\u3057\u307E\u3057\u305F"
+    });
+  }
+});
+
+const uploadIcon_post$1 = /*#__PURE__*/Object.freeze(/*#__PURE__*/Object.defineProperty({
+  __proto__: null,
+  default: uploadIcon_post
 }, Symbol.toStringTag, { value: 'Module' }));
 
 function renderPayloadResponse(ssrContext) {

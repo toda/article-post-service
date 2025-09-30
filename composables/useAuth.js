@@ -73,6 +73,7 @@ export function useAuth() {
 
   const auth = getFirebaseAuth()
   const db = getFirebaseFirestore()
+  const storage = getFirebaseStorage()
 
   // Computed properties
   const user = computed(() => currentUser.value)
@@ -889,13 +890,17 @@ export function useAuth() {
     }
   }
 
-  // Upload user icon to Firebase Storage
+  // Upload user icon directly to Firebase Storage
   const uploadUserIcon = async (file) => {
     try {
       clearError()
 
       if (!auth.currentUser) {
         throw new Error(AuthErrorCodes.UNAUTHORIZED)
+      }
+
+      if (!storage) {
+        throw new Error('Firebase Storage が利用できません')
       }
 
       // Validate file
@@ -915,25 +920,20 @@ export function useAuth() {
         throw new Error('ファイルサイズが大きすぎます。5MB以下のファイルを選択してください。')
       }
 
-      console.log('📤 アイコンをFirebase Storageに直接アップロード:', file.name)
+      console.log('📤 Firebase Storage に直接アイコンをアップロード:', file.name)
 
-      // Firebase Storageの取得
-      const storage = getFirebaseStorage()
-      if (!storage) {
-        throw new Error('Firebase Storageが初期化されていません')
-      }
+      // Create file reference
+      const fileName = `icon.${file.name.split('.').pop()}`
+      const fileRef = storageRef(storage, `user-icons/${auth.currentUser.uid}/${fileName}`)
 
-      // ファイル名を生成（ユーザーIDとタイムスタンプを使用）
-      const timestamp = Date.now()
-      const fileExtension = file.name.split('.').pop()
-      const fileName = `user-icons/${auth.currentUser.uid}/icon_${timestamp}.${fileExtension}`
-
-      // Firebase Storageにファイルをアップロード
-      const fileRef = storageRef(storage, fileName)
+      // Upload file
+      console.log('📤 ファイルをアップロード中...')
       const snapshot = await uploadBytes(fileRef, file)
-      const downloadURL = await getDownloadURL(snapshot.ref)
+      console.log('✅ ファイルアップロード完了:', snapshot.ref.fullPath)
 
-      console.log('✅ Firebase Storageにアップロード完了:', downloadURL)
+      // Get download URL
+      const downloadURL = await getDownloadURL(snapshot.ref)
+      console.log('✅ ダウンロードURL取得完了:', downloadURL)
 
       // Firestoreのユーザードキュメントを更新
       if (db) {
@@ -964,7 +964,7 @@ export function useAuth() {
     }
   }
 
-  // Delete user icon from Firebase Storage
+  // Delete user icon directly from Firebase Storage
   const deleteUserIcon = async () => {
     try {
       clearError()
@@ -973,7 +973,11 @@ export function useAuth() {
         throw new Error(AuthErrorCodes.UNAUTHORIZED)
       }
 
-      console.log('🗑️ Firebase Storageからアイコンを削除')
+      if (!storage) {
+        throw new Error('Firebase Storage が利用できません')
+      }
+
+      console.log('🗑️ Firebase Storage から直接アイコンを削除')
 
       // 現在のアバターURLを取得
       const currentAvatarUrl = currentUser.value?.avatarUrl
@@ -982,27 +986,34 @@ export function useAuth() {
         return true
       }
 
-      // Firebase Storage参照を作成
-      const storage = getFirebaseStorage()
-      if (!storage) {
-        throw new Error('Firebase Storageが初期化されていません')
-      }
-
       try {
-        // URLからファイルパスを抽出して削除
-        if (currentAvatarUrl.includes('firebasestorage.googleapis.com')) {
+        // URLからファイルパスを抽出
+        let filePath = null
+        if (currentAvatarUrl.includes('firebasestorage.googleapis.com') || currentAvatarUrl.includes('storage.googleapis.com')) {
           const url = new URL(currentAvatarUrl)
-          const pathMatch = url.pathname.match(/\/o\/(.+?)\?/)
-          if (pathMatch) {
-            const filePath = decodeURIComponent(pathMatch[1])
-            const fileRef = storageRef(storage, filePath)
-            await deleteObject(fileRef)
-            console.log('✅ Firebase Storageからファイル削除完了:', filePath)
+          if (url.pathname.includes('/o/')) {
+            const pathMatch = url.pathname.match(/\/o\/(.+?)\?/)
+            if (pathMatch) {
+              filePath = decodeURIComponent(pathMatch[1])
+            }
+          } else {
+            // storage.googleapis.com URL format
+            const pathParts = url.pathname.split('/')
+            if (pathParts.length >= 3) {
+              filePath = pathParts.slice(2).join('/')
+            }
           }
         }
-      } catch (storageError) {
-        console.warn('⚠️ Firebase Storageからの削除に失敗（ファイルが既に存在しない可能性）:', storageError.message)
-        // ストレージエラーは続行（ファイルが既に削除されている場合など）
+
+        if (filePath) {
+          // Delete from Firebase Storage directly
+          const fileRef = storageRef(storage, filePath)
+          await deleteObject(fileRef)
+          console.log('✅ Firebase Storage からファイル削除完了:', filePath)
+        }
+      } catch (deleteError) {
+        console.warn('⚠️ ファイル削除に失敗（ファイルが既に存在しない可能性）:', deleteError.message)
+        // 削除エラーは続行（ファイルが既に削除されている場合など）
       }
 
       // Firestoreのユーザードキュメントを更新
