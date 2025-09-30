@@ -42,6 +42,7 @@ declare global {
   const getFirebaseApp: typeof import('../../utils/firebase')['getFirebaseApp']
   const getFirebaseAuth: typeof import('../../utils/firebase')['getFirebaseAuth']
   const getFirebaseFirestore: typeof import('../../utils/firebase')['getFirebaseFirestore']
+  const getFirebaseStorage: typeof import('../../utils/firebase')['getFirebaseStorage']
   const getRouteRules: typeof import('../../node_modules/nuxt/dist/app/composables/manifest')['getRouteRules']
   const h: typeof import('vue')['h']
   const hasInjectionContext: typeof import('vue')['hasInjectionContext']
@@ -248,6 +249,7 @@ declare module 'vue' {
     readonly getFirebaseApp: UnwrapRef<typeof import('../../utils/firebase')['getFirebaseApp']>
     readonly getFirebaseAuth: UnwrapRef<typeof import('../../utils/firebase')['getFirebaseAuth']>
     readonly getFirebaseFirestore: UnwrapRef<typeof import('../../utils/firebase')['getFirebaseFirestore']>
+    readonly getFirebaseStorage: UnwrapRef<typeof import('../../utils/firebase')['getFirebaseStorage']>
     readonly getRouteRules: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/manifest')['getRouteRules']>
     readonly h: UnwrapRef<typeof import('vue')['h']>
     readonly hasInjectionContext: UnwrapRef<typeof import('vue')['hasInjectionContext']>

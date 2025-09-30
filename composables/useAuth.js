@@ -22,7 +22,8 @@ import {
   EmailAuthProvider
 } from 'firebase/auth'
 import { doc, getDoc, setDoc, updateDoc, deleteDoc, query, where, collection, getDocs } from 'firebase/firestore'
-import { getFirebaseAuth, getFirebaseFirestore } from '~/utils/firebase'
+import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
+import { getFirebaseAuth, getFirebaseFirestore, getFirebaseStorage } from '~/utils/firebase'
 
 // Global state
 const currentUser = ref(null)
@@ -888,6 +889,151 @@ export function useAuth() {
     }
   }
 
+  // Upload user icon to Firebase Storage
+  const uploadUserIcon = async (file) => {
+    try {
+      clearError()
+
+      if (!auth.currentUser) {
+        throw new Error(AuthErrorCodes.UNAUTHORIZED)
+      }
+
+      // Validate file
+      if (!file) {
+        throw new Error('ファイルが選択されていません')
+      }
+
+      // Check file type
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+      if (!allowedTypes.includes(file.type)) {
+        throw new Error('対応していないファイル形式です。JPEG、PNG、GIF、WebP形式のファイルを選択してください。')
+      }
+
+      // Check file size (max 5MB)
+      const maxSize = 5 * 1024 * 1024 // 5MB
+      if (file.size > maxSize) {
+        throw new Error('ファイルサイズが大きすぎます。5MB以下のファイルを選択してください。')
+      }
+
+      console.log('📤 アイコンをFirebase Storageに直接アップロード:', file.name)
+
+      // Firebase Storageの取得
+      const storage = getFirebaseStorage()
+      if (!storage) {
+        throw new Error('Firebase Storageが初期化されていません')
+      }
+
+      // ファイル名を生成（ユーザーIDとタイムスタンプを使用）
+      const timestamp = Date.now()
+      const fileExtension = file.name.split('.').pop()
+      const fileName = `user-icons/${auth.currentUser.uid}/icon_${timestamp}.${fileExtension}`
+
+      // Firebase Storageにファイルをアップロード
+      const fileRef = storageRef(storage, fileName)
+      const snapshot = await uploadBytes(fileRef, file)
+      const downloadURL = await getDownloadURL(snapshot.ref)
+
+      console.log('✅ Firebase Storageにアップロード完了:', downloadURL)
+
+      // Firestoreのユーザードキュメントを更新
+      if (db) {
+        const userDocRef = doc(db, 'users', auth.currentUser.uid)
+        await updateDoc(userDocRef, {
+          avatarUrl: downloadURL,
+          updatedAt: new Date()
+        })
+        console.log('✅ Firestoreのユーザーデータを更新完了')
+      }
+
+      // Firebase Authのユーザープロファイルを更新
+      await updateProfile(auth.currentUser, {
+        photoURL: downloadURL
+      })
+      console.log('✅ Firebase Authのプロファイルを更新完了')
+
+      // ローカル状態を更新
+      if (currentUser.value) {
+        currentUser.value.avatarUrl = downloadURL
+      }
+
+      return downloadURL
+    } catch (error) {
+      console.error('❌ アイコンアップロードエラー:', error)
+      setError(error)
+      throw error
+    }
+  }
+
+  // Delete user icon from Firebase Storage
+  const deleteUserIcon = async () => {
+    try {
+      clearError()
+
+      if (!auth.currentUser) {
+        throw new Error(AuthErrorCodes.UNAUTHORIZED)
+      }
+
+      console.log('🗑️ Firebase Storageからアイコンを削除')
+
+      // 現在のアバターURLを取得
+      const currentAvatarUrl = currentUser.value?.avatarUrl
+      if (!currentAvatarUrl) {
+        console.log('⚠️ 削除するアバター画像がありません')
+        return true
+      }
+
+      // Firebase Storage参照を作成
+      const storage = getFirebaseStorage()
+      if (!storage) {
+        throw new Error('Firebase Storageが初期化されていません')
+      }
+
+      try {
+        // URLからファイルパスを抽出して削除
+        if (currentAvatarUrl.includes('firebasestorage.googleapis.com')) {
+          const url = new URL(currentAvatarUrl)
+          const pathMatch = url.pathname.match(/\/o\/(.+?)\?/)
+          if (pathMatch) {
+            const filePath = decodeURIComponent(pathMatch[1])
+            const fileRef = storageRef(storage, filePath)
+            await deleteObject(fileRef)
+            console.log('✅ Firebase Storageからファイル削除完了:', filePath)
+          }
+        }
+      } catch (storageError) {
+        console.warn('⚠️ Firebase Storageからの削除に失敗（ファイルが既に存在しない可能性）:', storageError.message)
+        // ストレージエラーは続行（ファイルが既に削除されている場合など）
+      }
+
+      // Firestoreのユーザードキュメントを更新
+      if (db) {
+        const userDocRef = doc(db, 'users', auth.currentUser.uid)
+        await updateDoc(userDocRef, {
+          avatarUrl: null,
+          updatedAt: new Date()
+        })
+        console.log('✅ Firestoreのアバター情報を削除完了')
+      }
+
+      // Firebase Authのユーザープロファイルを更新
+      await updateProfile(auth.currentUser, {
+        photoURL: null
+      })
+      console.log('✅ Firebase Authのプロファイル削除完了')
+
+      // ローカル状態を更新
+      if (currentUser.value) {
+        currentUser.value.avatarUrl = null
+      }
+
+      return true
+    } catch (error) {
+      console.error('❌ アイコン削除エラー:', error)
+      setError(error)
+      throw error
+    }
+  }
+
   // Initialize on mount
   onMounted(() => {
     initializeAuth()
@@ -915,6 +1061,8 @@ export function useAuth() {
     deleteAccount,
     reauthenticate,
     clearError,
+    uploadUserIcon,
+    deleteUserIcon,
 
     // Utils
     initializeAuth

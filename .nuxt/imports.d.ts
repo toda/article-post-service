@@ -37,7 +37,7 @@ export { UserErrorCodes, useUsers } from '../composables/useUsers';
 export { createTestArticle, createTestUser } from '../utils/createTestData';
 export { formatDate, formatDateTime } from '../utils/dateFormatter';
 export { debugCurrentUser, debugComments, testAvatarUrl } from '../utils/debugAvatar';
-export { initializeFirebase, getFirebaseAuth, getFirebaseFirestore, getFirebaseApp } from '../utils/firebase';
+export { initializeFirebase, getFirebaseAuth, getFirebaseFirestore, getFirebaseStorage, getFirebaseApp } from '../utils/firebase';
 export { mockArticle, mockComments } from '../utils/mockData';
 export { useNuxtDevTools } from '../node_modules/@nuxt/devtools/dist/runtime/use-nuxt-devtools';
 export { definePageMeta } from '../node_modules/nuxt/dist/pages/runtime/composables';

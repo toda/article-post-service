@@ -65,7 +65,24 @@
             >
               記事を書く
             </NuxtLink>
-            <div class="relative">
+            <div class="relative flex items-center space-x-2">
+              <!-- User Avatar -->
+              <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+                <img
+                  v-if="user?.avatarUrl"
+                  :src="user.avatarUrl"
+                  :alt="user.displayName || 'ユーザー'"
+                  class="w-full h-full object-cover"
+                >
+                <svg
+                  v-else
+                  class="w-4 h-4 text-gray-400"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              </div>
               <span class="text-gray-700 font-medium">{{ user?.displayName || 'ユーザー' }}</span>
             </div>
             <NuxtLink
@@ -188,8 +205,25 @@
           <div class="pt-4 mt-4 border-t border-gray-200 space-y-2">
             <!-- Authenticated User Menu -->
             <template v-if="isLoggedIn && !authLoading">
-              <div class="px-3 py-2 text-gray-700 font-medium text-center bg-gray-50 rounded-lg">
-                {{ user?.displayName || 'ユーザー' }}
+              <div class="px-3 py-2 text-gray-700 font-medium text-center bg-gray-50 rounded-lg flex items-center justify-center space-x-2">
+                <!-- User Avatar -->
+                <div class="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+                  <img
+                    v-if="user?.avatarUrl"
+                    :src="user.avatarUrl"
+                    :alt="user.displayName || 'ユーザー'"
+                    class="w-full h-full object-cover"
+                  >
+                  <svg
+                    v-else
+                    class="w-3 h-3 text-gray-400"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                </div>
+                <span>{{ user?.displayName || 'ユーザー' }}</span>
               </div>
               <NuxtLink
                 to="/write"

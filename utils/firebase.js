@@ -6,27 +6,31 @@
 import { initializeApp, getApps } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
+import { getStorage } from 'firebase/storage'
 
 // Initialize Firebase app (singleton pattern)
 let app = null
 let auth = null
 let db = null
+let storage = null
 
 function getFirebaseConfig() {
   console.log('🔧 Getting Firebase config...')
 
+  let config = null
+
   // Use Nuxt runtime config if available, fallback to env variables
   if (typeof useRuntimeConfig !== 'undefined') {
     try {
-      const config = useRuntimeConfig()
+      const runtimeConfig = useRuntimeConfig()
       console.log('🔧 Using Nuxt runtime config')
-      return {
-        apiKey: config.public.firebaseApiKey || "AIzaSyBUCGgZ8o4Ygj2CDKFY_UaOr-RE4whOJkY",
-        authDomain: config.public.firebaseAuthDomain || "first-speckit.firebaseapp.com",
-        projectId: config.public.firebaseProjectId || "first-speckit",
-        storageBucket: config.public.firebaseStorageBucket || "first-speckit.firebasestorage.app",
-        messagingSenderId: config.public.firebaseMessagingSenderId || "677560287317",
-        appId: config.public.firebaseAppId || "1:677560287317:web:88b27378cd0de9e66354dc"
+      config = {
+        apiKey: runtimeConfig.public.firebaseApiKey,
+        authDomain: runtimeConfig.public.firebaseAuthDomain,
+        projectId: runtimeConfig.public.firebaseProjectId,
+        storageBucket: runtimeConfig.public.firebaseStorageBucket,
+        messagingSenderId: runtimeConfig.public.firebaseMessagingSenderId,
+        appId: runtimeConfig.public.firebaseAppId
       }
     } catch (e) {
       console.log('🔧 useRuntimeConfig error:', e.message)
@@ -35,16 +39,30 @@ function getFirebaseConfig() {
     console.log('🔧 useRuntimeConfig not available')
   }
 
-  // Fallback configuration
-  console.log('🔧 Using fallback Firebase config')
-  return {
-    apiKey: "AIzaSyBUCGgZ8o4Ygj2CDKFY_UaOr-RE4whOJkY",
-    authDomain: "first-speckit.firebaseapp.com",
-    projectId: "first-speckit",
-    storageBucket: "first-speckit.firebasestorage.app",
-    messagingSenderId: "677560287317",
-    appId: "1:677560287317:web:88b27378cd0de9e66354dc"
+  // Fallback to environment variables if runtime config is not available
+  if (!config || !config.apiKey) {
+    console.log('🔧 Using environment variables')
+    config = {
+      apiKey: process.env.FIREBASE_API_KEY,
+      authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+      messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+      appId: process.env.FIREBASE_APP_ID
+    }
   }
+
+  // Validate required configuration
+  const requiredFields = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId']
+  const missingFields = requiredFields.filter(field => !config[field])
+
+  if (missingFields.length > 0) {
+    console.error('🚨 Missing Firebase configuration:', missingFields)
+    throw new Error(`Firebase configuration is incomplete. Missing: ${missingFields.join(', ')}`)
+  }
+
+  console.log('✅ Firebase configuration loaded successfully')
+  return config
 }
 
 export function initializeFirebase() {
@@ -61,14 +79,17 @@ export function initializeFirebase() {
 
     // Initialize Firestore for both client and server
     db = getFirestore(app)
+    console.log('🔥 Firestore initialized for production use')
 
-    // Auth is only available on client side
+    // Auth and Storage are only available on client side
     if (typeof window !== 'undefined') {
       auth = getAuth(app)
+      storage = getStorage(app)
+      console.log('🔥 Firebase Auth and Storage initialized for production use')
     }
   }
 
-  return { app, auth, db }
+  return { app, auth, db, storage }
 }
 
 export function getFirebaseAuth() {
@@ -83,6 +104,13 @@ export function getFirebaseFirestore() {
     initializeFirebase()
   }
   return db
+}
+
+export function getFirebaseStorage() {
+  if (!storage && typeof window !== 'undefined') {
+    initializeFirebase()
+  }
+  return storage
 }
 
 export function getFirebaseApp() {

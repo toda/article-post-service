@@ -1,0 +1,20 @@
+rules_version = '2';
+
+// Cloud Storage for Firebase のセキュリティルール
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // ユーザーアイコン画像のアップロード規則
+    match /user-icons/{userId}/{allPaths=**} {
+      // 認証済みユーザーのみアクセス可能で、自分のフォルダのみ操作可能
+      allow read, write: if request.auth != null
+                      && request.auth.uid == userId
+                      && request.auth.token.email_verified == true;
+    }
+
+    // その他のファイルは現在未定義（必要に応じて追加）
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

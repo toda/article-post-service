@@ -28,6 +28,107 @@
 
     <!-- Settings Content -->
     <div v-else class="space-y-6">
+      <!-- Profile Information Section -->
+      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h2 class="text-xl font-semibold text-gray-900 mb-6">プロフィール情報</h2>
+
+        <div class="space-y-6">
+          <!-- User Icon Section -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              アイコン画像（任意）
+            </label>
+            <div class="flex items-center space-x-6">
+              <!-- Current Icon Display -->
+              <div class="flex-shrink-0">
+                <div class="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+                  <img
+                    v-if="user?.avatarUrl"
+                    :src="user.avatarUrl"
+                    :alt="user.displayName || 'ユーザー'"
+                    class="w-full h-full object-cover"
+                  >
+                  <svg
+                    v-else
+                    class="w-8 h-8 text-gray-400"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                </div>
+              </div>
+
+              <!-- Icon Actions -->
+              <div class="flex-1">
+                <div class="flex items-center space-x-3">
+                  <!-- File Input -->
+                  <label class="cursor-pointer">
+                    <input
+                      ref="iconFileInput"
+                      type="file"
+                      accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                      @change="handleIconFileSelect"
+                      class="hidden"
+                    >
+                    <span class="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                      <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                      画像を選択
+                    </span>
+                  </label>
+
+                  <!-- Upload Button -->
+                  <button
+                    v-if="selectedIconFile"
+                    @click="uploadIcon"
+                    :disabled="isUploadingIcon"
+                    class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span v-if="isUploadingIcon" class="inline-flex items-center">
+                      <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      アップロード中...
+                    </span>
+                    <span v-else>アップロード</span>
+                  </button>
+
+                  <!-- Delete Button -->
+                  <button
+                    v-if="user?.avatarUrl"
+                    @click="deleteIcon"
+                    :disabled="isDeletingIcon"
+                    class="inline-flex items-center px-3 py-2 border border-red-300 text-sm font-medium rounded-lg text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span v-if="isDeletingIcon" class="inline-flex items-center">
+                      <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-red-700" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      削除中...
+                    </span>
+                    <span v-else>削除</span>
+                  </button>
+                </div>
+
+                <!-- File Info -->
+                <div v-if="selectedIconFile" class="mt-2 text-sm text-gray-600">
+                  選択中: {{ selectedIconFile.name }} ({{ formatFileSize(selectedIconFile.size) }})
+                </div>
+
+                <!-- Icon Upload Guidelines -->
+                <div class="mt-2 text-xs text-gray-500">
+                  対応形式: JPEG、PNG、GIF、WebP / 最大サイズ: 5MB
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Account Information -->
       <div class="bg-white rounded-lg border border-gray-200 p-6">
         <h2 class="text-lg font-medium text-gray-900 mb-6">アカウント情報</h2>
@@ -297,6 +398,8 @@ const {
   sendEmailVerification,
   deleteAccount,
   reauthenticate,
+  uploadUserIcon,
+  deleteUserIcon,
   loading: authLoading
 } = useAuth()
 const {
@@ -320,6 +423,12 @@ const verificationSent = ref(false)
 const exportResult = ref(null)
 const showDeleteConfirmation = ref(false)
 const deleteConfirmationText = ref('')
+
+// Icon upload state
+const selectedIconFile = ref(null)
+const isUploadingIcon = ref(false)
+const isDeletingIcon = ref(false)
+const iconFileInput = ref(null)
 
 // Computed
 const isPasswordFormValid = computed(() => {
@@ -412,6 +521,58 @@ const confirmDeleteAccount = async () => {
     showDeleteConfirmation.value = false
     deleteConfirmationText.value = ''
   }
+}
+
+// Icon upload methods
+const handleIconFileSelect = (event) => {
+  const file = event.target.files?.[0]
+  if (file) {
+    selectedIconFile.value = file
+  }
+}
+
+const uploadIcon = async () => {
+  if (!selectedIconFile.value) return
+
+  try {
+    isUploadingIcon.value = true
+    await uploadUserIcon(selectedIconFile.value)
+
+    // Clear selected file and reset input
+    selectedIconFile.value = null
+    if (iconFileInput.value) {
+      iconFileInput.value.value = ''
+    }
+
+    console.log('Icon uploaded successfully')
+  } catch (error) {
+    console.error('Failed to upload icon:', error)
+    // TODO: Show error message
+  } finally {
+    isUploadingIcon.value = false
+  }
+}
+
+const deleteIcon = async () => {
+  try {
+    isDeletingIcon.value = true
+    await deleteUserIcon()
+    console.log('Icon deleted successfully')
+  } catch (error) {
+    console.error('Failed to delete icon:', error)
+    // TODO: Show error message
+  } finally {
+    isDeletingIcon.value = false
+  }
+}
+
+// Utility function to format file size
+const formatFileSize = (bytes) => {
+  if (bytes === 0) return '0 Bytes'
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
 // Lifecycle

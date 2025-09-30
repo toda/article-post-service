@@ -22,6 +22,8 @@
   "dependencies": {
     "@vueuse/firebase": "^14.0.0-alpha.0",
     "firebase": "^12.2.1",
+    "firebase-admin": "^13.5.0",
+    "formidable": "^3.5.4",
     "nuxt": "^3.13.0",
     "vue": "^3.4.0",
     "vue-router": "^4.4.0"
