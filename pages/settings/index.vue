@@ -156,7 +156,7 @@
             <button
               v-if="!user?.emailVerified"
               @click="resendVerification"
-              :disabled="loading"
+              :disabled="authLoading"
               class="text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors"
               data-testid="resend-verification"
             >
@@ -183,7 +183,7 @@
             >
             <button
               type="submit"
-              :disabled="!emailForm.newEmail || loading"
+              :disabled="!emailForm.newEmail || authLoading"
               class="px-4 py-2 border border-transparent rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
               data-testid="update-email"
             >
@@ -231,7 +231,7 @@
             </div>
             <button
               type="submit"
-              :disabled="!isPasswordFormValid || loading"
+              :disabled="!isPasswordFormValid || authLoading"
               class="px-4 py-2 border border-transparent rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
               data-testid="update-password"
             >
@@ -279,45 +279,6 @@
             </div>
           </form>
         </div>
-      </div>
-
-      <!-- Data Export -->
-      <div class="bg-white rounded-lg border border-gray-200 p-6" data-testid="data-export-section">
-        <h2 class="text-lg font-medium text-gray-900 mb-4">データのエクスポート</h2>
-        <p class="text-gray-600 mb-4">あなたのプロフィール情報、記事、コメントなどのデータをダウンロードできます。</p>
-
-        <div v-if="exportResult" class="mb-4 p-4 bg-green-50 rounded-lg">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-sm font-medium text-green-800">データの準備が完了しました</p>
-              <p class="text-sm text-green-600">{{ new Date().toLocaleDateString('ja-JP') }}にエクスポートされました</p>
-            </div>
-            <a
-              :href="exportResult.downloadUrl"
-              :download="`user-data-${user?.uid}.json`"
-              class="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
-              data-testid="download-export"
-            >
-              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              ダウンロード
-            </a>
-          </div>
-        </div>
-
-        <button
-          @click="exportUserData"
-          :disabled="loading"
-          class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
-          data-testid="export-data-button"
-        >
-          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          <span v-if="loading">エクスポート中...</span>
-          <span v-else>データをエクスポート</span>
-        </button>
       </div>
 
       <!-- Danger Zone -->
@@ -388,11 +349,11 @@
             <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
               <button
                 @click="confirmDeleteAccount"
-                :disabled="deleteConfirmationText !== 'DELETE' || loading"
+                :disabled="deleteConfirmationText !== 'DELETE' || authLoading"
                 class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 transition-colors"
                 data-testid="confirm-delete-button"
               >
-                <span v-if="loading">削除中...</span>
+                <span v-if="authLoading">削除中...</span>
                 <span v-else>削除する</span>
               </button>
               <button
@@ -443,9 +404,7 @@ const {
   loading: authLoading
 } = useAuth()
 const {
-  exportUserData: exportData,
-  deleteUserData,
-  loading
+  deleteUserData
 } = useUsers()
 
 // State
@@ -460,7 +419,6 @@ const passwordForm = ref({
 })
 
 const verificationSent = ref(false)
-const exportResult = ref(null)
 const showDeleteConfirmation = ref(false)
 const deleteConfirmationText = ref('')
 
@@ -559,17 +517,6 @@ const resendVerification = async () => {
     }, 5000)
   } catch (error) {
     console.error('Failed to send verification email:', error)
-  }
-}
-
-const exportUserData = async () => {
-  if (!user.value) return
-
-  try {
-    const result = await exportData(user.value.uid)
-    exportResult.value = result
-  } catch (error) {
-    console.error('Failed to export user data:', error)
   }
 }
 
