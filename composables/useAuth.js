@@ -789,25 +789,36 @@ export function useAuth() {
                     ...userSnapshot.data()
                   }
 
-                  // Always update avatar from Firebase user photoURL
+                  // Sync avatar between Firebase Auth and Firestore
+                  // Firestore is the source of truth for avatarUrl
                   const currentAvatarUrl = userData.avatarUrl
                   const firebaseAvatarUrl = user.photoURL
 
                   let needsUpdate = false
                   const updateData = {}
 
-                  if (firebaseAvatarUrl) {
-                    if (firebaseAvatarUrl !== currentAvatarUrl) {
-                      console.log('🔄 Updating user avatar URL:', firebaseAvatarUrl)
-                      updateData.avatarUrl = firebaseAvatarUrl
-                      userData.avatarUrl = firebaseAvatarUrl
-                      needsUpdate = true
-                    } else {
-                      console.log('✅ Avatar URL already up to date:', firebaseAvatarUrl)
-                      userData.avatarUrl = firebaseAvatarUrl
+                  // If Firestore has null but Firebase Auth has a URL, clear Firebase Auth
+                  if (currentAvatarUrl === null && firebaseAvatarUrl !== null) {
+                    console.log('🔄 Firestore avatarUrl is null, clearing Firebase Auth photoURL')
+                    try {
+                      await updateProfile(user, { photoURL: null })
+                      console.log('✅ Firebase Auth photoURL cleared')
+                    } catch (profileError) {
+                      console.warn('⚠️ Failed to clear Firebase Auth photoURL:', profileError.message)
                     }
-                  } else {
-                    console.log('⚠️ No photoURL found for Firebase user')
+                    userData.avatarUrl = null
+                  }
+                  // If Firebase Auth has a URL but Firestore doesn't, update Firestore
+                  else if (firebaseAvatarUrl && firebaseAvatarUrl !== currentAvatarUrl) {
+                    console.log('🔄 Updating Firestore avatar URL from Firebase Auth:', firebaseAvatarUrl)
+                    updateData.avatarUrl = firebaseAvatarUrl
+                    userData.avatarUrl = firebaseAvatarUrl
+                    needsUpdate = true
+                  }
+                  // Both are in sync
+                  else {
+                    console.log('✅ Avatar URL already synced:', currentAvatarUrl)
+                    userData.avatarUrl = currentAvatarUrl
                   }
 
                   // Always sync emailVerified status between Firebase Auth and Firestore

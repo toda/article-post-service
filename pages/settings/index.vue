@@ -237,6 +237,46 @@
             >
               パスワードを変更
             </button>
+
+            <!-- Password Change Feedback -->
+            <div
+              v-if="passwordChangeMessage"
+              :class="[
+                'mt-4 p-4 rounded-lg',
+                passwordChangeType === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+              ]"
+              data-testid="password-change-message"
+            >
+              <div class="flex items-start">
+                <!-- Success Icon -->
+                <svg
+                  v-if="passwordChangeType === 'success'"
+                  class="w-5 h-5 text-green-600 mr-3 flex-shrink-0 mt-0.5"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+                <!-- Error Icon -->
+                <svg
+                  v-else
+                  class="w-5 h-5 text-red-600 mr-3 flex-shrink-0 mt-0.5"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                </svg>
+                <!-- Message Text -->
+                <p
+                  :class="[
+                    'text-sm font-medium',
+                    passwordChangeType === 'success' ? 'text-green-800' : 'text-red-800'
+                  ]"
+                >
+                  {{ passwordChangeMessage }}
+                </p>
+              </div>
+            </div>
           </form>
         </div>
       </div>
@@ -430,6 +470,10 @@ const isUploadingIcon = ref(false)
 const isDeletingIcon = ref(false)
 const iconFileInput = ref(null)
 
+// Password change feedback
+const passwordChangeMessage = ref(null)
+const passwordChangeType = ref('success') // 'success' or 'error'
+
 // Computed
 const isPasswordFormValid = computed(() => {
   return passwordForm.value.currentPassword &&
@@ -457,6 +501,9 @@ const updateEmail = async () => {
 const updatePassword = async () => {
   if (!isPasswordFormValid.value) return
 
+  // Clear previous messages
+  passwordChangeMessage.value = null
+
   try {
     // Reauthenticate first
     await reauthenticate(passwordForm.value.currentPassword)
@@ -471,11 +518,35 @@ const updatePassword = async () => {
       confirmPassword: ''
     }
 
-    // TODO: Show success message
-    console.log('Password updated successfully')
+    // Show success message
+    passwordChangeType.value = 'success'
+    passwordChangeMessage.value = 'パスワードを変更しました。'
+
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+      passwordChangeMessage.value = null
+    }, 5000)
   } catch (error) {
     console.error('Failed to update password:', error)
-    // TODO: Show error message
+
+    // Show error message
+    passwordChangeType.value = 'error'
+
+    // Determine error message based on error code
+    if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+      passwordChangeMessage.value = '現在のパスワードが正しくありません。'
+    } else if (error.code === 'auth/weak-password') {
+      passwordChangeMessage.value = '新しいパスワードは6文字以上で設定してください。'
+    } else if (error.code === 'auth/requires-recent-login') {
+      passwordChangeMessage.value = 'セキュリティのため、再度ログインしてからパスワードを変更してください。'
+    } else {
+      passwordChangeMessage.value = 'パスワードの変更に失敗しました。'
+    }
+
+    // Auto-hide after 8 seconds
+    setTimeout(() => {
+      passwordChangeMessage.value = null
+    }, 8000)
   }
 }
 
