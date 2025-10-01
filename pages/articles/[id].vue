@@ -46,8 +46,6 @@
                 :src="article.author?.avatarUrl || article.avatarUrl"
                 :alt="article.author?.displayName || 'Author'"
                 class="w-12 h-12 rounded-full object-cover border border-gray-200"
-                crossorigin="anonymous"
-                referrerpolicy="no-referrer"
                 @load="handleAvatarLoad"
                 @error="handleAvatarError"
               >
@@ -410,40 +408,26 @@ watch(article, (newArticle) => {
 // Server-side data loading with proper error handling
 console.log('📖 Starting article data loading for ID:', articleId)
 
-// Debug useFirestore initialization
-console.log('📖 Testing useFirestore...')
-const { db: testDb } = useFirestore()
-console.log('📖 useFirestore db instance:', testDb ? 'available' : 'not available')
-
-// Debug useArticles initialization
-console.log('📖 Testing useArticles...')
-const { getArticle: testGetArticle } = useArticles()
-console.log('📖 useArticles getArticle function:', typeof testGetArticle)
-
 let articleData
 try {
   console.log('📖 Calling getArticle function...')
   articleData = await getArticle(articleId)
   console.log('📖 getArticle result:', articleData ? 'Found' : 'Not found')
+
+  if (articleData) {
+    // Set the article data
+    article.value = articleData
+    likeCount.value = articleData.likeCount || 0
+  } else {
+    // Article not found - don't throw error, just leave article as null
+    // The template will show the "記事が見つかりません" message
+    console.warn('⚠️ Article not found:', articleId)
+  }
 } catch (error) {
   console.error('📖 Error in getArticle:', error)
-  throw createError({
-    statusCode: 500,
-    statusMessage: 'Error loading article: ' + error.message
-  })
+  // Don't throw error, just leave article as null
+  // The template will show the "記事が見つかりません" message
 }
-
-if (!articleData) {
-  console.warn('⚠️ Article not found:', articleId)
-  throw createError({
-    statusCode: 404,
-    statusMessage: 'Article not found'
-  })
-}
-
-// Set the article data
-article.value = articleData
-likeCount.value = articleData.likeCount || 0
 
 // Client-side initialization
 onMounted(async () => {

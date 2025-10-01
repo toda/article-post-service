@@ -12,6 +12,18 @@ service firebase.storage {
                       && request.auth.token.email_verified == true;
     }
 
+    // 記事画像のアップロード規則
+    match /article-images/{userId}/{allPaths=**} {
+      // 読み取りは誰でも可能（公開記事の画像を表示するため）
+      allow read: if true;
+      // 書き込みは認証済みでメール確認済みのユーザーのみ、自分のフォルダのみ操作可能
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && request.auth.token.email_verified == true
+                   && request.resource.size < 5 * 1024 * 1024  // 5MB以下
+                   && request.resource.contentType.matches('image/(jpeg|png|gif|webp)');
+    }
+
     // その他のファイルは現在未定義（必要に応じて追加）
     match /{allPaths=**} {
       allow read, write: if false;

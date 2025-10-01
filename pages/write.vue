@@ -220,6 +220,37 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
                 </button>
+                <button
+                  @click="triggerImageUpload"
+                  type="button"
+                  class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                  title="画像をアップロード"
+                  :disabled="imageUploading"
+                >
+                  <svg v-if="!imageUploading" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <svg v-else class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </button>
+                <input
+                  ref="imageInputRef"
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  @change="handleImageUpload"
+                  class="hidden"
+                />
+              </div>
+              <!-- Image Upload Message -->
+              <div
+                v-if="imageUploadMessage"
+                :class="[
+                  'mt-2 p-2 rounded text-sm',
+                  imageUploadType === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'
+                ]"
+              >
+                {{ imageUploadMessage }}
               </div>
             </div>
             <textarea
@@ -305,6 +336,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useAuth } from '~/composables/useAuth'
 import { useArticles } from '~/composables/useArticles'
 import { useMarkdown } from '~/composables/useMarkdown'
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
 
 // SEO
 useHead({
@@ -324,6 +356,7 @@ const { renderMarkdown } = useMarkdown()
 
 // Refs
 const editorRef = ref(null)
+const imageInputRef = ref(null)
 
 // State
 const form = ref({
@@ -339,6 +372,9 @@ const tagInput = ref('')
 const categories = ref([])
 const errors = ref({})
 const autoSaveStatus = ref('')
+const imageUploading = ref(false)
+const imageUploadMessage = ref(null)
+const imageUploadType = ref('success')
 
 // Computed
 const canPublish = computed(() => {
@@ -405,6 +441,89 @@ const insertMarkdown = (before, after) => {
     const newCursorPos = start + before.length + selectedText.length
     textarea.setSelectionRange(newCursorPos, newCursorPos)
   })
+}
+
+const triggerImageUpload = () => {
+  imageInputRef.value?.click()
+}
+
+const handleImageUpload = async (event) => {
+  const file = event.target.files?.[0]
+  if (!file) return
+
+  // Reset input
+  event.target.value = ''
+
+  // Validate file type
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+  if (!allowedTypes.includes(file.type)) {
+    imageUploadMessage.value = '画像ファイルはJPEG、PNG、GIF、WebPのみアップロード可能です。'
+    imageUploadType.value = 'error'
+    setTimeout(() => { imageUploadMessage.value = null }, 5000)
+    return
+  }
+
+  // Validate file size (5MB max)
+  const maxSize = 5 * 1024 * 1024 // 5MB
+  if (file.size > maxSize) {
+    imageUploadMessage.value = '画像ファイルは5MB以下にしてください。'
+    imageUploadType.value = 'error'
+    setTimeout(() => { imageUploadMessage.value = null }, 5000)
+    return
+  }
+
+  try {
+    imageUploading.value = true
+    imageUploadMessage.value = null
+
+    // Upload to Firebase Storage
+    const storage = getStorage()
+    const timestamp = Date.now()
+    const fileName = `${timestamp}-${file.name}`
+    const storagePath = `article-images/${user.value.uid}/${fileName}`
+    const fileRef = storageRef(storage, storagePath)
+
+    await uploadBytes(fileRef, file)
+    const downloadURL = await getDownloadURL(fileRef)
+
+    console.log('📸 画像アップロード成功:', {
+      fileName: file.name,
+      downloadURL,
+      storagePath
+    })
+
+    // Insert image markdown into editor
+    const textarea = editorRef.value
+    if (textarea) {
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      const text = textarea.value
+
+      const imageMarkdown = `![${file.name}](${downloadURL})`
+      console.log('📝 挿入するマークダウン:', imageMarkdown)
+
+      const newText = text.substring(0, start) + imageMarkdown + text.substring(end)
+      form.value.content = newText
+
+      // Focus and set cursor position after the inserted image
+      nextTick(() => {
+        textarea.focus()
+        const newCursorPos = start + imageMarkdown.length
+        textarea.setSelectionRange(newCursorPos, newCursorPos)
+      })
+    }
+
+    imageUploadMessage.value = '画像をアップロードしました。'
+    imageUploadType.value = 'success'
+    setTimeout(() => { imageUploadMessage.value = null }, 5000)
+  } catch (error) {
+    console.error('画像のアップロードに失敗しました:', error)
+    imageUploadMessage.value = '画像のアップロードに失敗しました。'
+    imageUploadType.value = 'error'
+    setTimeout(() => { imageUploadMessage.value = null }, 5000)
+  } finally {
+    imageUploading.value = false
+  }
 }
 
 const saveDraft = async () => {
