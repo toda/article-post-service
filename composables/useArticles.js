@@ -846,36 +846,53 @@ export function useArticles() {
   }
 
   // Get recent articles
-  const getRecentArticles = async (pageLimit = 10) => {
+  const getRecentArticles = async (pageLimit = 10, lastDoc = null) => {
     try {
       clearError()
       articlesLoading.value = true
 
       let articles = []
+      let lastDocument = null
 
       // Try with index first
       try {
-        const q = query(
-          collection(db, 'articles'),
+        const constraints = [
           where('isPublic', '==', true),
           orderBy('publishedAt', 'desc'),
           limit(pageLimit)
-        )
+        ]
+
+        // Add pagination if lastDoc is provided
+        if (lastDoc) {
+          constraints.push(startAfter(lastDoc))
+        }
+
+        const q = query(collection(db, 'articles'), ...constraints)
 
         const snapshot = await getDocs(q)
         articles = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         }))
+
+        // Store the last document for pagination
+        if (snapshot.docs.length > 0) {
+          lastDocument = snapshot.docs[snapshot.docs.length - 1]
+        }
       } catch (indexError) {
         // If index is not ready, fallback to simple query and filter client-side
         console.warn('Index not ready, using fallback query:', indexError.message)
 
-        const q = query(
-          collection(db, 'articles'),
+        const constraints = [
           orderBy('publishedAt', 'desc'),
           limit(pageLimit * 2) // Get more to account for filtering
-        )
+        ]
+
+        if (lastDoc) {
+          constraints.push(startAfter(lastDoc))
+        }
+
+        const q = query(collection(db, 'articles'), ...constraints)
 
         const snapshot = await getDocs(q)
         articles = snapshot.docs
@@ -885,6 +902,12 @@ export function useArticles() {
           }))
           .filter(article => article.isPublic === true)
           .slice(0, pageLimit)
+
+        // Store the last document for pagination
+        const publicDocs = snapshot.docs.filter(doc => doc.data().isPublic === true)
+        if (publicDocs.length > 0) {
+          lastDocument = publicDocs[Math.min(publicDocs.length - 1, pageLimit - 1)]
+        }
       }
 
       // Get author information for each article
@@ -913,7 +936,10 @@ export function useArticles() {
         })
       )
 
-      return articlesWithAuthors
+      return {
+        articles: articlesWithAuthors,
+        lastDoc: lastDocument
+      }
     } catch (error) {
       setError(error)
       throw error

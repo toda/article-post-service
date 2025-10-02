@@ -31,7 +31,7 @@
       <div class="flex items-center justify-between mb-6">
         <h2 class="text-2xl font-bold text-gray-900">最新の記事</h2>
         <NuxtLink
-          to="/explore"
+          to="/articles"
           class="text-blue-600 hover:text-blue-700 font-medium text-sm transition-colors"
         >
           すべて見る →
@@ -164,7 +164,8 @@ const loadData = async () => {
 
     // Load recent articles (sorted by publishedAt/createdAt)
     const articlesResult = await getRecentArticles(6)
-    recentArticles.value = articlesResult || []
+    // Handle both old format (array) and new format (object with articles and lastDoc)
+    recentArticles.value = articlesResult?.articles || articlesResult || []
 
     // Load categories
     const categoriesResult = await listCategories()
