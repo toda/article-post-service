@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-8">
-    <!-- Hero Section -->
-    <section class="text-center py-12 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl">
+    <!-- Hero Section (未ログインユーザーのみ表示) -->
+    <section v-if="!isLoggedIn" class="text-center py-12 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl">
       <div class="max-w-4xl mx-auto px-4">
         <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
           技術記事を<span class="text-blue-600">共有</span>しよう
@@ -11,18 +11,10 @@
         </p>
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
           <NuxtLink
-            v-if="!isLoggedIn"
             to="/signup"
             class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
           >
             今すぐ始める
-          </NuxtLink>
-          <NuxtLink
-            v-else
-            to="/write"
-            class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-          >
-            記事を書く
           </NuxtLink>
           <NuxtLink
             to="/explore"
@@ -31,6 +23,48 @@
             記事を探す
           </NuxtLink>
         </div>
+      </div>
+    </section>
+
+    <!-- Recent Articles Section -->
+    <section>
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-2xl font-bold text-gray-900">最新の記事</h2>
+        <NuxtLink
+          to="/explore"
+          class="text-blue-600 hover:text-blue-700 font-medium text-sm transition-colors"
+        >
+          すべて見る →
+        </NuxtLink>
+      </div>
+
+      <!-- Loading State -->
+      <div v-if="articlesLoading" class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div v-for="i in 6" :key="i" class="animate-pulse">
+          <div class="bg-white rounded-lg border border-gray-200 p-6">
+            <div class="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
+            <div class="h-3 bg-gray-200 rounded w-full mb-2"></div>
+            <div class="h-3 bg-gray-200 rounded w-5/6"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Articles Grid -->
+      <div v-else-if="recentArticles.length > 0" class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <ArticleCard
+          v-for="article in recentArticles"
+          :key="article.id"
+          :article="article"
+        />
+      </div>
+
+      <!-- Empty State -->
+      <div v-else class="text-center py-12 bg-gray-50 rounded-lg">
+        <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <h3 class="text-lg font-medium text-gray-900 mb-2">まだ記事がありません</h3>
+        <p class="text-gray-500">最初の記事を投稿してみませんか？</p>
       </div>
     </section>
 
@@ -82,15 +116,16 @@
       </div>
 
       <div class="flex flex-wrap gap-2">
-        <NuxtLink
-          v-for="tag in (popularTags || [])"
-          :key="tag.id"
-          :to="`/tags/${tag.id}`"
-          class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors"
-        >
-          #{{ tag.name }}
-          <span class="ml-1 text-xs text-gray-500">({{ tag.count || 0 }})</span>
-        </NuxtLink>
+        <template v-for="tag in (popularTags || [])" :key="tag.id">
+          <NuxtLink
+            v-if="tag.articleCount > 0"
+            :to="`/tags/${tag.id}`"
+            class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors"
+          >
+            #{{ tag.name }}
+            <span class="ml-1 text-xs text-gray-500">({{ tag.articleCount }})</span>
+          </NuxtLink>
+        </template>
       </div>
     </section>
   </div>
@@ -98,6 +133,8 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useAuth } from '~/composables/useAuth'
+import { useArticles } from '~/composables/useArticles'
 
 // SEO
 useHead({
@@ -110,39 +147,38 @@ useHead({
   ]
 })
 
-// Mock data for now - no composables to avoid errors
-const user = ref(null)
-const isLoggedIn = ref(false)
+// Composables
+const { user, isLoggedIn } = useAuth()
+const { getRecentArticles, listCategories, getPopularTags } = useArticles()
 
 // State
 const categories = ref([])
 const popularTags = ref([])
+const recentArticles = ref([])
+const articlesLoading = ref(false)
 
 // Methods
 const loadData = async () => {
-  // Mock categories data
-  categories.value = [
-    { id: 'tech', name: 'Technology', color: '#3B82F6', articleCount: 45 },
-    { id: 'javascript', name: 'JavaScript', color: '#F59E0B', articleCount: 32 },
-    { id: 'react', name: 'React', color: '#06B6D4', articleCount: 28 },
-    { id: 'vue', name: 'Vue.js', color: '#10B981', articleCount: 25 },
-    { id: 'nodejs', name: 'Node.js', color: '#84CC16', articleCount: 20 },
-    { id: 'python', name: 'Python', color: '#8B5CF6', articleCount: 18 }
-  ]
+  try {
+    articlesLoading.value = true
 
-  // Mock popular tags
-  popularTags.value = [
-    { id: 'javascript', name: 'JavaScript', count: 150 },
-    { id: 'typescript', name: 'TypeScript', count: 120 },
-    { id: 'react', name: 'React', count: 100 },
-    { id: 'vue', name: 'Vue.js', count: 90 },
-    { id: 'nodejs', name: 'Node.js', count: 85 },
-    { id: 'python', name: 'Python', count: 80 },
-    { id: 'docker', name: 'Docker', count: 60 },
-    { id: 'kubernetes', name: 'Kubernetes', count: 45 },
-    { id: 'aws', name: 'AWS', count: 40 },
-    { id: 'nextjs', name: 'Next.js', count: 35 }
-  ]
+    // Load recent articles (sorted by publishedAt/createdAt)
+    const articlesResult = await getRecentArticles(6)
+    recentArticles.value = articlesResult || []
+
+    // Load categories
+    const categoriesResult = await listCategories()
+    categories.value = categoriesResult || []
+
+    // Load popular tags
+    const tagsResult = await getPopularTags(10)
+    console.log('📊 Popular tags result:', tagsResult)
+    popularTags.value = tagsResult || []
+  } catch (error) {
+    console.error('Failed to load homepage data:', error)
+  } finally {
+    articlesLoading.value = false
+  }
 }
 
 // Lifecycle

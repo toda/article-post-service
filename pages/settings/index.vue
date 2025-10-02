@@ -126,6 +126,40 @@
               </div>
             </div>
           </div>
+
+          <!-- Bio Section -->
+          <div>
+            <label for="bio" class="block text-sm font-medium text-gray-700 mb-2">
+              自己紹介（任意）
+            </label>
+            <textarea
+              id="bio"
+              v-model="bioForm.bio"
+              rows="4"
+              maxlength="500"
+              placeholder="あなたについて簡単に紹介してください（最大500文字）"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+            ></textarea>
+            <div class="mt-2 flex items-center justify-between">
+              <p class="text-xs text-gray-500">
+                {{ bioForm.bio?.length || 0 }} / 500文字
+              </p>
+              <button
+                @click="updateBio"
+                :disabled="isUpdatingBio"
+                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span v-if="isUpdatingBio" class="inline-flex items-center">
+                  <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  更新中...
+                </span>
+                <span v-else>自己紹介を更新</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -404,7 +438,9 @@ const {
   loading: authLoading
 } = useAuth()
 const {
-  deleteUserData
+  deleteUserData,
+  getUserProfile,
+  updateUserProfile
 } = useUsers()
 
 // State
@@ -427,6 +463,12 @@ const selectedIconFile = ref(null)
 const isUploadingIcon = ref(false)
 const isDeletingIcon = ref(false)
 const iconFileInput = ref(null)
+
+// Bio form state
+const bioForm = ref({
+  bio: ''
+})
+const isUpdatingBio = ref(false)
 
 // Password change feedback
 const passwordChangeMessage = ref(null)
@@ -584,6 +626,28 @@ const deleteIcon = async () => {
   }
 }
 
+// Bio update method
+const updateBio = async () => {
+  if (!user.value) return
+
+  try {
+    isUpdatingBio.value = true
+
+    await updateUserProfile(user.value.uid, {
+      bio: bioForm.value.bio || ''
+    })
+
+    console.log('Bio updated successfully')
+
+    // Show success message (optional - can add a toast notification later)
+  } catch (error) {
+    console.error('Failed to update bio:', error)
+    // TODO: Show error message
+  } finally {
+    isUpdatingBio.value = false
+  }
+}
+
 // Utility function to format file size
 const formatFileSize = (bytes) => {
   if (bytes === 0) return '0 Bytes'
@@ -593,8 +657,41 @@ const formatFileSize = (bytes) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
+// Load bio data
+const loadBioData = async () => {
+  if (!user.value) return
+
+  try {
+    console.log('📝 Loading bio for user:', user.value.uid)
+    const userProfile = await getUserProfile(user.value.uid)
+    console.log('📝 User profile loaded:', userProfile)
+
+    if (userProfile && userProfile.bio) {
+      bioForm.value.bio = userProfile.bio
+      console.log('📝 Bio loaded:', userProfile.bio)
+    } else {
+      bioForm.value.bio = ''
+      console.log('📝 No bio found, setting empty string')
+    }
+  } catch (error) {
+    console.error('Failed to load user bio:', error)
+  }
+}
+
+// Watch user changes to load bio
+watch(user, async (newUser) => {
+  if (newUser) {
+    console.log('👤 User changed, loading bio data...')
+    await loadBioData()
+  }
+}, { immediate: true })
+
 // Lifecycle
-onMounted(() => {
-  // Any initialization if needed
+onMounted(async () => {
+  // Initial load if user is already available
+  if (user.value) {
+    console.log('📝 onMounted: User already available, loading bio')
+    await loadBioData()
+  }
 })
 </script>

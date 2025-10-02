@@ -9,8 +9,6 @@
           :src="getSafeAvatarUrl(comment.author?.avatarUrl || comment.avatarUrl)"
           :alt="getAuthorDisplayName()"
           class="w-8 h-8 rounded-full object-cover border border-gray-200"
-          crossorigin="anonymous"
-          referrerpolicy="no-referrer"
           @load="handleAvatarLoad"
           @error="handleAvatarError"
         >

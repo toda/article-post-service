@@ -182,7 +182,7 @@ export function useUsers() {
   }
 
   // Update user profile
-  const updateUserProfile = async (profileData) => {
+  const updateUserProfile = async (userId, profileData) => {
     try {
       clearError()
       usersLoading.value = true
@@ -191,17 +191,22 @@ export function useUsers() {
         throw new Error(UserErrorCodes.USER_UNAUTHORIZED)
       }
 
+      // Ensure user can only update their own profile
+      if (currentUser.value.uid !== userId) {
+        throw new Error(UserErrorCodes.USER_UNAUTHORIZED)
+      }
+
       // Validate profile data
       validateProfileData(profileData)
 
-      const userDoc = doc(db, 'users', currentUser.value.uid)
+      const userDoc = doc(db, 'users', userId)
       await updateDoc(userDoc, {
         ...profileData,
         updatedAt: new Date()
       })
 
       return {
-        uid: currentUser.value.uid,
+        uid: userId,
         ...profileData,
         updatedAt: new Date()
       }

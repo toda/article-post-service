@@ -217,15 +217,33 @@ export function useArticles() {
 
       // Update category statistics
       if (createRequest.categoryId) {
+        console.log('📂 Updating category statistics for:', createRequest.categoryId)
         const categoryDoc = doc(db, 'categories', createRequest.categoryId)
 
         // Find category data from predefined categories
         const category = CATEGORIES.find(cat => cat.id === createRequest.categoryId)
         if (category) {
-          await setDoc(categoryDoc, {
-            ...category,
-            articleCount: increment(1)
-          }, { merge: true })
+          console.log('📂 Found category:', category)
+
+          // Check if category document exists
+          const categorySnapshot = await getDoc(categoryDoc)
+
+          if (!categorySnapshot.exists()) {
+            // First time: create category with initial count
+            await setDoc(categoryDoc, {
+              ...category,
+              articleCount: 1
+            })
+            console.log('📂 Category created with initial count')
+          } else {
+            // Already exists: just increment the count
+            await updateDoc(categoryDoc, {
+              articleCount: increment(1)
+            })
+            console.log('📂 Category articleCount incremented')
+          }
+        } else {
+          console.warn('📂 Category not found in CATEGORIES:', createRequest.categoryId)
         }
       }
 
@@ -389,6 +407,169 @@ export function useArticles() {
       }
 
       await updateDoc(articleDoc, updateData)
+
+      // Update tag statistics if tags changed
+      if (updateRequest.tags) {
+        const oldTags = article.tags || []
+        const newTags = updateRequest.tags || []
+
+        // Find tags that were removed
+        const removedTags = oldTags.filter(tag => !newTags.includes(tag))
+        // Find tags that were added
+        const addedTags = newTags.filter(tag => !oldTags.includes(tag))
+
+        console.log('🏷️ Tag changes - Removed:', removedTags, 'Added:', addedTags)
+
+        // Only update counts if article is public
+        if (updateRequest.isPublic) {
+          const batch = writeBatch(db)
+
+          // Decrement count for removed tags
+          for (const tag of removedTags) {
+            const tagDoc = doc(db, 'tags', tag)
+            const tagSnapshot = await getDoc(tagDoc)
+            if (tagSnapshot.exists()) {
+              batch.update(tagDoc, {
+                articleCount: increment(-1),
+                updatedAt: new Date()
+              })
+              console.log('🏷️ Decrementing tag:', tag)
+            }
+          }
+
+          // Increment count for added tags
+          for (const tag of addedTags) {
+            const tagDoc = doc(db, 'tags', tag)
+            const tagSnapshot = await getDoc(tagDoc)
+            if (tagSnapshot.exists()) {
+              batch.update(tagDoc, {
+                articleCount: increment(1),
+                updatedAt: new Date()
+              })
+              console.log('🏷️ Incrementing existing tag:', tag)
+            } else {
+              // Create new tag
+              batch.set(tagDoc, {
+                name: tag,
+                slug: tag.toLowerCase().replace(/\s+/g, '-'),
+                articleCount: 1,
+                createdAt: new Date(),
+                updatedAt: new Date()
+              })
+              console.log('🏷️ Creating new tag:', tag)
+            }
+          }
+
+          await batch.commit()
+          console.log('🏷️ Tag counts updated successfully')
+        } else if (article.isPublic && !updateRequest.isPublic) {
+          // Article changed from public to private: decrement all tags
+          console.log('🏷️ Article became private, decrementing all tags')
+          const batch = writeBatch(db)
+
+          for (const tag of oldTags) {
+            const tagDoc = doc(db, 'tags', tag)
+            const tagSnapshot = await getDoc(tagDoc)
+            if (tagSnapshot.exists()) {
+              batch.update(tagDoc, {
+                articleCount: increment(-1),
+                updatedAt: new Date()
+              })
+            }
+          }
+
+          await batch.commit()
+        } else if (!article.isPublic && updateRequest.isPublic) {
+          // Article changed from private to public: increment all tags
+          console.log('🏷️ Article became public, incrementing all tags')
+          const batch = writeBatch(db)
+
+          for (const tag of newTags) {
+            const tagDoc = doc(db, 'tags', tag)
+            const tagSnapshot = await getDoc(tagDoc)
+            if (tagSnapshot.exists()) {
+              batch.update(tagDoc, {
+                articleCount: increment(1),
+                updatedAt: new Date()
+              })
+            } else {
+              // Create new tag
+              batch.set(tagDoc, {
+                name: tag,
+                slug: tag.toLowerCase().replace(/\s+/g, '-'),
+                articleCount: 1,
+                createdAt: new Date(),
+                updatedAt: new Date()
+              })
+            }
+          }
+
+          await batch.commit()
+        }
+      }
+
+      // Update category statistics if category changed
+      if (updateRequest.categoryId && article.categoryId !== updateRequest.categoryId) {
+        console.log('📂 Category changed from', article.categoryId, 'to', updateRequest.categoryId)
+
+        // Decrement old category count (only if it was public)
+        if (article.isPublic && article.categoryId) {
+          const oldCategoryDoc = doc(db, 'categories', article.categoryId)
+          const oldCategorySnapshot = await getDoc(oldCategoryDoc)
+          if (oldCategorySnapshot.exists()) {
+            await updateDoc(oldCategoryDoc, {
+              articleCount: increment(-1)
+            })
+            console.log('📂 Decremented old category:', article.categoryId)
+          }
+        }
+
+        // Increment new category count (only if article is public)
+        if (updateRequest.isPublic) {
+          const newCategoryDoc = doc(db, 'categories', updateRequest.categoryId)
+          const newCategorySnapshot = await getDoc(newCategoryDoc)
+
+          if (!newCategorySnapshot.exists()) {
+            // Category doesn't exist, create it
+            const category = CATEGORIES.find(cat => cat.id === updateRequest.categoryId)
+            if (category) {
+              await setDoc(newCategoryDoc, {
+                ...category,
+                articleCount: 1
+              })
+              console.log('📂 Created new category with initial count:', updateRequest.categoryId)
+            }
+          } else {
+            // Category exists, increment count
+            await updateDoc(newCategoryDoc, {
+              articleCount: increment(1)
+            })
+            console.log('📂 Incremented new category:', updateRequest.categoryId)
+          }
+        }
+      } else if (article.categoryId && article.isPublic !== updateRequest.isPublic) {
+        // Publication status changed but category didn't change
+        console.log('📂 Publication status changed for category:', article.categoryId)
+
+        const categoryDoc = doc(db, 'categories', article.categoryId)
+        const categorySnapshot = await getDoc(categoryDoc)
+
+        if (categorySnapshot.exists()) {
+          if (updateRequest.isPublic && !article.isPublic) {
+            // Changed from private to public: increment
+            await updateDoc(categoryDoc, {
+              articleCount: increment(1)
+            })
+            console.log('📂 Incremented category (private→public):', article.categoryId)
+          } else if (!updateRequest.isPublic && article.isPublic) {
+            // Changed from public to private: decrement
+            await updateDoc(categoryDoc, {
+              articleCount: increment(-1)
+            })
+            console.log('📂 Decremented category (public→private):', article.categoryId)
+          }
+        }
+      }
 
       // Get author information (same logic as getArticle)
       let author = null
@@ -670,18 +851,69 @@ export function useArticles() {
       clearError()
       articlesLoading.value = true
 
-      const q = query(
-        collection(db, 'articles'),
-        where('isPublic', '==', true),
-        orderBy('publishedAt', 'desc'),
-        limit(pageLimit)
+      let articles = []
+
+      // Try with index first
+      try {
+        const q = query(
+          collection(db, 'articles'),
+          where('isPublic', '==', true),
+          orderBy('publishedAt', 'desc'),
+          limit(pageLimit)
+        )
+
+        const snapshot = await getDocs(q)
+        articles = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }))
+      } catch (indexError) {
+        // If index is not ready, fallback to simple query and filter client-side
+        console.warn('Index not ready, using fallback query:', indexError.message)
+
+        const q = query(
+          collection(db, 'articles'),
+          orderBy('publishedAt', 'desc'),
+          limit(pageLimit * 2) // Get more to account for filtering
+        )
+
+        const snapshot = await getDocs(q)
+        articles = snapshot.docs
+          .map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }))
+          .filter(article => article.isPublic === true)
+          .slice(0, pageLimit)
+      }
+
+      // Get author information for each article
+      const articlesWithAuthors = await Promise.all(
+        articles.map(async (article) => {
+          let author = null
+          try {
+            if (article.authorId) {
+              const authorDoc = doc(db, 'users', article.authorId)
+              const authorSnapshot = await getDoc(authorDoc)
+              if (authorSnapshot.exists()) {
+                author = {
+                  uid: authorSnapshot.id,
+                  ...authorSnapshot.data()
+                }
+              }
+            }
+          } catch (authorError) {
+            console.warn('Failed to get author info:', authorError)
+          }
+
+          return {
+            ...article,
+            author
+          }
+        })
       )
 
-      const snapshot = await getDocs(q)
-      return snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }))
+      return articlesWithAuthors
     } catch (error) {
       setError(error)
       throw error
@@ -792,12 +1024,29 @@ export function useArticles() {
     try {
       clearError()
 
-      // For now, return predefined categories
-      // In production, these could be stored in Firestore
-      return CATEGORIES.map(category => ({
+      // Get categories from Firestore (which includes articleCount)
+      const categoriesSnapshot = await getDocs(collection(db, 'categories'))
+
+      if (categoriesSnapshot.empty) {
+        // If no categories in Firestore, return predefined ones
+        console.log('📂 No categories in Firestore, returning defaults')
+        return CATEGORIES
+      }
+
+      // Merge Firestore data with predefined categories
+      const firestoreCategories = {}
+      categoriesSnapshot.docs.forEach(doc => {
+        firestoreCategories[doc.id] = doc.data()
+        console.log(`📂 Category ${doc.id}:`, doc.data())
+      })
+
+      const result = CATEGORIES.map(category => ({
         ...category,
-        articleCount: 0 // Would be fetched from Firestore
+        articleCount: firestoreCategories[category.id]?.articleCount || 0
       }))
+
+      console.log('📂 Final categories with counts:', result)
+      return result
     } catch (error) {
       setError(error)
       throw error
@@ -943,6 +1192,8 @@ export function useArticles() {
     try {
       clearError()
 
+      console.log('🏷️ Fetching popular tags from Firestore...')
+
       const q = query(
         collection(db, 'tags'),
         orderBy('articleCount', 'desc'),
@@ -950,14 +1201,24 @@ export function useArticles() {
       )
 
       const snapshot = await getDocs(q)
-      return snapshot.docs.map(doc => ({
-        id: doc.id,
-        name: doc.id,
-        slug: doc.id,
-        ...doc.data(),
-        followCount: 0 // Would need to implement tag following
-      }))
+      console.log(`🏷️ Found ${snapshot.docs.length} tags in Firestore`)
+
+      const tags = snapshot.docs.map(doc => {
+        const data = doc.data()
+        console.log(`🏷️ Tag ${doc.id}:`, data)
+        return {
+          id: doc.id,
+          name: doc.id,
+          slug: doc.id,
+          ...data,
+          followCount: 0 // Would need to implement tag following
+        }
+      })
+
+      console.log('🏷️ Returning tags:', tags)
+      return tags
     } catch (error) {
+      console.error('❌ Failed to get popular tags:', error)
       setError(error)
       throw error
     }
@@ -1147,8 +1408,9 @@ export function useArticles() {
       const batch = writeBatch(db)
       for (const category of CATEGORIES) {
         const categoryDoc = doc(db, 'categories', category.id)
+        const { articleCount: _, ...categoryWithoutCount } = category
         batch.set(categoryDoc, {
-          ...category,
+          ...categoryWithoutCount,
           articleCount: 0
         }, { merge: true })
       }
@@ -1156,6 +1418,115 @@ export function useArticles() {
       console.log('Categories initialized successfully')
     } catch (error) {
       console.error('Failed to initialize categories:', error)
+    }
+  }
+
+  // Recalculate category counts from existing articles
+  const recalculateCategoryCounts = async () => {
+    try {
+      console.log('🔄 Starting category count recalculation...')
+
+      // Get all articles
+      const articlesSnapshot = await getDocs(collection(db, 'articles'))
+      const articles = articlesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+
+      console.log(`📊 Found ${articles.length} total articles`)
+
+      // Count articles by category
+      const categoryCounts = {}
+      CATEGORIES.forEach(cat => {
+        categoryCounts[cat.id] = 0
+      })
+
+      articles.forEach(article => {
+        if (article.isPublic && article.categoryId && categoryCounts[article.categoryId] !== undefined) {
+          categoryCounts[article.categoryId]++
+        }
+      })
+
+      console.log('📊 Category counts:', categoryCounts)
+
+      // Update Firestore categories collection
+      const batch = writeBatch(db)
+
+      for (const category of CATEGORIES) {
+        const categoryDoc = doc(db, 'categories', category.id)
+        const { articleCount: _, ...categoryWithoutCount } = category
+        batch.set(categoryDoc, {
+          ...categoryWithoutCount,
+          articleCount: categoryCounts[category.id]
+        })
+      }
+
+      await batch.commit()
+
+      console.log('✅ Category counts updated successfully!')
+
+      // Display results
+      CATEGORIES.forEach(cat => {
+        console.log(`  ${cat.name}: ${categoryCounts[cat.id]} 記事`)
+      })
+
+      return categoryCounts
+    } catch (error) {
+      console.error('❌ Failed to recalculate category counts:', error)
+      throw error
+    }
+  }
+
+  // Recalculate tag counts from existing articles
+  const recalculateTagCounts = async () => {
+    try {
+      console.log('🔄 Starting tag count recalculation...')
+
+      // Get all articles
+      const articlesSnapshot = await getDocs(collection(db, 'articles'))
+      const articles = articlesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+
+      console.log(`📊 Found ${articles.length} total articles`)
+
+      // Count articles by tag
+      const tagCounts = {}
+
+      articles.forEach(article => {
+        if (article.isPublic && article.tags && Array.isArray(article.tags)) {
+          article.tags.forEach(tag => {
+            if (tag) {
+              tagCounts[tag] = (tagCounts[tag] || 0) + 1
+            }
+          })
+        }
+      })
+
+      console.log('📊 Tag counts:', tagCounts)
+
+      // Update Firestore tags collection
+      const batch = writeBatch(db)
+
+      for (const [tagName, count] of Object.entries(tagCounts)) {
+        const tagDoc = doc(db, 'tags', tagName)
+        batch.set(tagDoc, {
+          name: tagName,
+          slug: tagName.toLowerCase().replace(/\s+/g, '-'),
+          articleCount: count,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }, { merge: true })
+      }
+
+      await batch.commit()
+
+      console.log('✅ Tag counts updated successfully!')
+
+      // Display results
+      Object.entries(tagCounts).forEach(([tag, count]) => {
+        console.log(`  #${tag}: ${count} 記事`)
+      })
+
+      return tagCounts
+    } catch (error) {
+      console.error('❌ Failed to recalculate tag counts:', error)
+      throw error
     }
   }
 
@@ -1181,6 +1552,8 @@ export function useArticles() {
     listCategories,
     getCategory,
     initializeCategories,
+    recalculateCategoryCounts,
+    recalculateTagCounts,
 
     // Tags
     listTags,

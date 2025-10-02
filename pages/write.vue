@@ -115,41 +115,32 @@
               <label for="tags" class="block text-sm font-medium text-gray-700 mb-2">
                 タグ（最大5個）
               </label>
-              <div class="relative">
-                <input
-                  id="tags"
-                  v-model="tagInput"
-                  @keydown.enter.prevent="addTag"
-                  @keydown.tab.prevent="addTag"
-                  @keydown.comma.prevent="addTag"
-                  type="text"
-                  placeholder="タグを入力してEnterキーで追加"
-                  class="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  data-testid="tags-input"
-                >
-              </div>
+              <input
+                id="tags"
+                v-model="tagInput"
+                type="text"
+                placeholder="タグを入力（カンマ区切り）"
+                class="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                :class="{ 'border-red-300': errors.tags }"
+                data-testid="tags-input"
+              >
+              <p v-if="errors.tags" class="mt-1 text-sm text-red-600">{{ errors.tags }}</p>
               <div v-if="form.tags.length > 0" class="flex flex-wrap gap-2 mt-2">
                 <span
                   v-for="(tag, index) in form.tags"
-                  :key="index"
+                  :key="tag"
                   class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800"
-                  data-testid="tag-item"
                 >
                   #{{ tag }}
                   <button
-                    @click="removeTag(index)"
                     type="button"
-                    class="ml-2 inline-flex items-center justify-center w-4 h-4 rounded-full text-blue-600 hover:bg-blue-200 focus:outline-none"
+                    @click="removeTag(index)"
+                    class="ml-1 text-blue-600 hover:text-blue-800"
                   >
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
+                    ×
                   </button>
                 </span>
               </div>
-              <p class="mt-1 text-sm text-gray-500">
-                {{ form.tags.length }}/5 個のタグ
-              </p>
             </div>
           </div>
 
@@ -351,7 +342,7 @@ useHead({
 
 // Composables
 const { user, isLoggedIn, loading: authLoading } = useAuth()
-const { createArticle, listCategories, initializeCategories, loading } = useArticles()
+const { createArticle, listCategories, loading } = useArticles()
 const { renderMarkdown } = useMarkdown()
 
 // Refs
@@ -411,16 +402,18 @@ const validateForm = () => {
   return Object.keys(errors.value).length === 0
 }
 
-const addTag = () => {
-  const tag = tagInput.value.trim().toLowerCase()
-  if (tag && !form.value.tags.includes(tag) && form.value.tags.length < 5) {
-    form.value.tags.push(tag)
-    tagInput.value = ''
-  }
+const processTags = (tagsString) => {
+  if (!tagsString.trim()) return []
+  return tagsString
+    .split(',')
+    .map(tag => tag.trim().toLowerCase())
+    .filter(tag => tag.length > 0)
+    .slice(0, 5) // 最大5個まで
 }
 
 const removeTag = (index) => {
   form.value.tags.splice(index, 1)
+  tagInput.value = form.value.tags.join(', ')
 }
 
 const insertMarkdown = (before, after) => {
@@ -609,6 +602,11 @@ const loadDraft = () => {
   }
 }
 
+// Watch tags input
+watch(tagInput, (newValue) => {
+  form.value.tags = processTags(newValue)
+})
+
 // Watch for changes and trigger auto-save
 watch(
   () => [form.value.title, form.value.content, form.value.categoryId, form.value.tags],
@@ -659,15 +657,6 @@ onMounted(async () => {
     // Always clear form first to ensure clean state
     clearForm()
     clearDraft() // Also clear any stored drafts to prevent old data
-
-    // Initialize categories in Firestore
-    try {
-      await initializeCategories()
-      console.log('✅ Categories initialized in Firestore')
-    } catch (initError) {
-      console.error('❌ Failed to initialize categories:', initError)
-      throw new Error(`Category initialization failed: ${initError.message}`)
-    }
 
     // Load categories
     try {
