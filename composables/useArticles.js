@@ -781,8 +781,8 @@ export function useArticles() {
       const snapshot = await getDocs(q)
 
       const articles = await Promise.all(
-        snapshot.docs.map(async (doc) => {
-          const data = doc.data()
+        snapshot.docs.map(async (docSnapshot) => {
+          const data = docSnapshot.data()
 
           // Get author info
           let author = null
@@ -798,7 +798,7 @@ export function useArticles() {
           }
 
           return {
-            id: doc.id,
+            id: docSnapshot.id,
             ...data,
             author
           }

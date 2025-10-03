@@ -1,43 +1,38 @@
 <template>
   <div class="max-w-6xl mx-auto py-8">
+    <!-- Debug Info -->
+    <div class="mb-4 p-4 bg-yellow-100 border border-yellow-300 rounded">
+      <h3 class="font-bold">🟡 デバッグ情報 (tags2.vue):</h3>
+      <p>Tags count: {{ tags.length }}</p>
+      <p>Loading: {{ loading }}</p>
+      <p>getPopularTags exists: {{ typeof getPopularTags }}</p>
+      <p>Current time: {{ new Date().toISOString() }}</p>
+    </div>
+
     <!-- Page Header -->
     <div class="mb-8">
-      <h1 class="text-3xl font-bold text-gray-900 mb-2">タグ一覧</h1>
+      <h1 class="text-3xl font-bold text-gray-900 mb-2">タグ一覧 (TEST)</h1>
       <p class="text-gray-600">興味のあるタグから記事を探しましょう。</p>
     </div>
 
     <!-- Loading State -->
-    <div v-if="loading" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+    <div v-if="loading" class="flex flex-wrap gap-2">
       <div v-for="i in 20" :key="i" class="animate-pulse">
-        <div class="bg-white rounded-lg border border-gray-200 p-6">
-          <div class="w-12 h-12 bg-gray-200 rounded-lg mb-4"></div>
-          <div class="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-          <div class="h-3 bg-gray-200 rounded w-1/2"></div>
-        </div>
+        <div class="bg-gray-200 rounded-full h-8 w-24"></div>
       </div>
     </div>
 
-    <!-- Tags Grid -->
+    <!-- Tags List -->
     <div v-else-if="tags.length > 0">
-      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+      <div class="flex flex-wrap gap-3">
         <NuxtLink
           v-for="tag in tags"
           :key="tag.id"
           :to="`/tags/${tag.id}`"
-          class="group bg-white rounded-lg border border-gray-200 p-6 hover:border-gray-300 hover:shadow-md transition-all"
+          class="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors"
         >
-          <div
-            class="w-12 h-12 rounded-lg mb-4 flex items-center justify-center text-white text-sm font-bold"
-            :style="{ backgroundColor: getTagColor(tag.name) }"
-          >
-            {{ tag.name.substring(0, 2).toUpperCase() }}
-          </div>
-          <h3 class="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors text-lg mb-2">
-            {{ tag.name }}
-          </h3>
-          <p class="text-sm text-gray-500">
-            {{ tag.articleCount || 0 }}件の記事
-          </p>
+          #{{ tag.name }}
+          <span class="ml-2 text-xs text-gray-500">({{ tag.articleCount }})</span>
         </NuxtLink>
       </div>
 
@@ -67,9 +62,11 @@
 import { ref, onMounted } from 'vue'
 import { useArticles } from '~/composables/useArticles'
 
+console.log('🚀 [TAGS2] Script setup executing...')
+
 // SEO
 useHead({
-  title: 'タグ一覧 - Article Platform',
+  title: 'タグ一覧 TEST - Article Platform',
   meta: [
     {
       name: 'description',
@@ -85,42 +82,34 @@ const { getPopularTags } = useArticles()
 const tags = ref([])
 const loading = ref(false)
 
+console.log('🚀 [TAGS2] State initialized')
+
 // Methods
 const loadTags = async () => {
+  console.log('📊 [TAGS2] loadTags() called')
   try {
     loading.value = true
+    console.log('📊 [TAGS2] Loading tags...')
+
     const result = await getPopularTags(100)
+
+    console.log('📊 [TAGS2] Tags loaded:', result)
+    console.log('📊 [TAGS2] Tags count:', result?.length || 0)
+
     tags.value = result || []
   } catch (error) {
-    console.error('Failed to load tags:', error)
+    console.error('❌ [TAGS2] Failed to load tags:', error)
   } finally {
     loading.value = false
+    console.log('📊 [TAGS2] Loading complete')
   }
-}
-
-const getTagColor = (tagName) => {
-  // タグ名から一貫した色を生成
-  const colors = [
-    '#3B82F6', // blue-500
-    '#8B5CF6', // purple-500
-    '#EC4899', // pink-500
-    '#10B981', // green-500
-    '#F59E0B', // amber-500
-    '#EF4444', // red-500
-    '#06B6D4', // cyan-500
-    '#6366F1', // indigo-500
-  ]
-
-  let hash = 0
-  for (let i = 0; i < tagName.length; i++) {
-    hash = tagName.charCodeAt(i) + ((hash << 5) - hash)
-  }
-
-  return colors[Math.abs(hash) % colors.length]
 }
 
 // Lifecycle
 onMounted(async () => {
+  console.log('🚀 [TAGS2] Component mounted!')
   await loadTags()
 })
+
+console.log('🚀 [TAGS2] Script setup complete')
 </script>
