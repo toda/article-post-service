@@ -2,17 +2,18 @@
  * Create 100 dummy articles for testing
  */
 
+import 'dotenv/config'
 import { initializeApp } from 'firebase/app'
 import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore'
 
-// Firebase configuration
+// Firebase configuration from environment variables
 const firebaseConfig = {
-  apiKey: "AIzaSyDhy7i2ZMuHxfVIKd_DPKkRc-PwRqnw8QA",
-  authDomain: "first-speckit.firebaseapp.com",
-  projectId: "first-speckit",
-  storageBucket: "first-speckit.firebasestorage.app",
-  messagingSenderId: "901237974885",
-  appId: "1:901237974885:web:d76ee0da21e4eaf3d49c1a"
+  apiKey: process.env.FIREBASE_API_KEY,
+  authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.FIREBASE_PROJECT_ID,
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.FIREBASE_APP_ID
 }
 
 // Initialize Firebase

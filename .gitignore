@@ -11,6 +11,7 @@ node_modules/
 # Firebase
 .firebase/
 firebase-debug.log
+.runtimeconfig.json
 
 # Build outputs
 dist/

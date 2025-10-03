@@ -7,6 +7,15 @@ export default defineNuxtConfig({
     '@nuxtjs/tailwindcss'
   ],
 
+  // Firebase Functions preset for SSR
+  nitro: {
+    preset: 'firebase',
+    firebase: {
+      gen: 2,
+      nodeVersion: '18'
+    }
+  },
+
   runtimeConfig: {
     public: {
       firebaseApiKey: process.env.FIREBASE_API_KEY,
