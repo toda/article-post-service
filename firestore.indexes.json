@@ -27,6 +27,38 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "articles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "categoryId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isPublic",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "publishedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "articles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "categoryId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "publishedAt",
+          "order": "DESCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []

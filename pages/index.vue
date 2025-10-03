@@ -73,7 +73,7 @@
       <div class="flex items-center justify-between mb-6">
         <h2 class="text-2xl font-bold text-gray-900">カテゴリ</h2>
         <NuxtLink
-          to="/explore"
+          to="/categories"
           class="text-blue-600 hover:text-blue-700 font-medium text-sm transition-colors"
         >
           すべて見る →

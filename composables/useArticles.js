@@ -948,6 +948,111 @@ export function useArticles() {
     }
   }
 
+  // Get articles by category
+  const getArticlesByCategory = async (categoryId, pageLimit = 10, lastDoc = null) => {
+    try {
+      clearError()
+      articlesLoading.value = true
+
+      let articles = []
+      let lastDocument = null
+
+      // Try with composite index first
+      try {
+        const constraints = [
+          where('categoryId', '==', categoryId),
+          where('isPublic', '==', true),
+          orderBy('publishedAt', 'desc'),
+          limit(pageLimit)
+        ]
+
+        // Add pagination if lastDoc is provided
+        if (lastDoc) {
+          constraints.push(startAfter(lastDoc))
+        }
+
+        const q = query(collection(db, 'articles'), ...constraints)
+        const snapshot = await getDocs(q)
+
+        articles = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }))
+
+        // Store the last document for pagination
+        if (snapshot.docs.length > 0) {
+          lastDocument = snapshot.docs[snapshot.docs.length - 1]
+        }
+      } catch (indexError) {
+        // If composite index is not ready, use fallback query
+        console.warn('Composite index not ready, using fallback query:', indexError.message)
+
+        const constraints = [
+          where('categoryId', '==', categoryId),
+          orderBy('publishedAt', 'desc'),
+          limit(pageLimit * 2) // Get more to account for filtering
+        ]
+
+        if (lastDoc) {
+          constraints.push(startAfter(lastDoc))
+        }
+
+        const q = query(collection(db, 'articles'), ...constraints)
+        const snapshot = await getDocs(q)
+
+        articles = snapshot.docs
+          .map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }))
+          .filter(article => article.isPublic === true)
+          .slice(0, pageLimit)
+
+        // Store the last document for pagination
+        const publicDocs = snapshot.docs.filter(doc => doc.data().isPublic === true)
+        if (publicDocs.length > 0) {
+          lastDocument = publicDocs[Math.min(publicDocs.length - 1, pageLimit - 1)]
+        }
+      }
+
+      // Get author information for each article
+      const articlesWithAuthors = await Promise.all(
+        articles.map(async (article) => {
+          let author = null
+          try {
+            if (article.authorId) {
+              const authorDoc = doc(db, 'users', article.authorId)
+              const authorSnapshot = await getDoc(authorDoc)
+              if (authorSnapshot.exists()) {
+                author = {
+                  uid: authorSnapshot.id,
+                  ...authorSnapshot.data()
+                }
+              }
+            }
+          } catch (authorError) {
+            console.warn('Failed to get author info:', authorError)
+          }
+
+          return {
+            ...article,
+            author
+          }
+        })
+      )
+
+      return {
+        articles: articlesWithAuthors,
+        lastDoc: lastDocument
+      }
+    } catch (error) {
+      setError(error)
+      throw error
+    } finally {
+      articlesLoading.value = false
+    }
+  }
+
   // Get user articles
   const getUserArticles = async (userId, queryParams = {}) => {
     try {
@@ -1571,6 +1676,7 @@ export function useArticles() {
     listArticles,
     getPopularArticles,
     getRecentArticles,
+    getArticlesByCategory,
     getUserArticles,
     searchArticles,
 
