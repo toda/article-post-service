@@ -163,6 +163,40 @@
       <CommentsSection :article-id="article.id" data-testid="comments-section" />
     </div>
 
+    <!-- Author Profile Link -->
+    <div v-if="article && canViewArticle && article.author" class="mt-8">
+      <h2 class="text-xl font-bold text-gray-900 mb-4">この記事を書いた人</h2>
+      <NuxtLink
+        :to="`/users/${article.author?.username || article.author?.uid}`"
+        class="block bg-white rounded-lg border border-gray-200 p-6 hover:border-blue-300 hover:shadow-md transition-all duration-200"
+      >
+        <div class="flex items-center space-x-4">
+          <img
+            v-if="article.author?.avatarUrl"
+            :src="article.author.avatarUrl"
+            :alt="article.author?.displayName || 'Author'"
+            class="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
+          >
+          <div
+            v-else
+            class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center border-2 border-blue-200"
+          >
+            <span class="text-blue-600 text-2xl font-medium">
+              {{ article.author?.displayName?.charAt(0).toUpperCase() || '?' }}
+            </span>
+          </div>
+          <div class="flex-1">
+            <p class="text-lg font-semibold text-gray-900 mb-1">{{ article.author?.displayName || 'Anonymous' }}</p>
+            <p v-if="article.author?.bio" class="text-sm text-gray-600 line-clamp-2">{{ article.author.bio }}</p>
+            <p v-else class="text-sm text-gray-500">この投稿者のプロフィールを見る</p>
+          </div>
+          <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </NuxtLink>
+    </div>
+
     <!-- Related Articles -->
     <div v-if="relatedArticles.length > 0 && canViewArticle" class="mt-12">
       <h2 class="text-2xl font-bold text-gray-900 mb-6">関連記事</h2>

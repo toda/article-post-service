@@ -14,13 +14,6 @@
           <!-- Navigation Links -->
           <nav class="hidden md:flex space-x-8 ml-8">
             <NuxtLink
-              to="/explore"
-              class="text-gray-600 hover:text-gray-900 font-medium transition-colors"
-              :class="{ 'text-blue-600': route.value?.path === '/explore' }"
-            >
-              発見
-            </NuxtLink>
-            <NuxtLink
               to="/trending"
               class="text-gray-600 hover:text-gray-900 font-medium transition-colors"
               :class="{ 'text-blue-600': route.value?.path?.includes('trending') }"
@@ -172,13 +165,6 @@
 
         <!-- Mobile Navigation -->
         <nav class="px-4 space-y-1">
-          <NuxtLink
-            to="/explore"
-            class="block px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg font-medium transition-all duration-200 transform hover:translate-x-1"
-            @click="closeMobileMenu"
-          >
-            発見
-          </NuxtLink>
           <NuxtLink
             to="/trending"
             class="block px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg font-medium transition-all duration-200 transform hover:translate-x-1"

@@ -297,6 +297,92 @@
         </div>
       </div>
 
+      <!-- Privacy Settings -->
+      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h2 class="text-xl font-semibold text-gray-900 mb-6">プライバシー設定</h2>
+
+        <div class="space-y-4">
+          <!-- Profile Public -->
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="font-medium text-gray-900">プロフィールを公開</div>
+              <div class="text-sm text-gray-500">他のユーザーがあなたのプロフィールを閲覧できます</div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input
+                v-model="privacyForm.profilePublic"
+                type="checkbox"
+                class="sr-only peer"
+              >
+              <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
+          </div>
+
+          <!-- Show Stats -->
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="font-medium text-gray-900">統計情報を表示</div>
+              <div class="text-sm text-gray-500">記事数、フォロワー数などの統計を公開します</div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input
+                v-model="privacyForm.showStats"
+                type="checkbox"
+                class="sr-only peer"
+              >
+              <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
+          </div>
+
+          <!-- Allow Follow -->
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="font-medium text-gray-900">フォローを許可</div>
+              <div class="text-sm text-gray-500">他のユーザーがあなたをフォローできます</div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input
+                v-model="privacyForm.allowFollow"
+                type="checkbox"
+                class="sr-only peer"
+              >
+              <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
+          </div>
+
+          <!-- Save Privacy Settings -->
+          <div class="pt-4 border-t border-gray-200">
+            <button
+              @click="savePrivacySettings"
+              :disabled="isSavingPrivacy"
+              class="inline-flex items-center px-4 py-2 border border-transparent rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <span v-if="isSavingPrivacy" class="inline-flex items-center">
+                <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                保存中...
+              </span>
+              <span v-else>プライバシー設定を保存</span>
+            </button>
+          </div>
+
+          <!-- Privacy Settings Message -->
+          <div
+            v-if="privacyMessage"
+            :class="[
+              'p-3 rounded-lg',
+              privacyMessageType === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+            ]"
+          >
+            <p :class="['text-sm font-medium', privacyMessageType === 'success' ? 'text-green-800' : 'text-red-800']">
+              {{ privacyMessage }}
+            </p>
+          </div>
+        </div>
+      </div>
+
       <!-- Account Information -->
       <div class="bg-white rounded-lg border border-gray-200 p-6">
         <h2 class="text-lg font-medium text-gray-900 mb-6">アカウント情報</h2>
@@ -539,7 +625,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '~/composables/useAuth'
 import { useUsers } from '~/composables/useUsers'
@@ -629,6 +715,16 @@ const displayNameForm = ref({
 const isUpdatingDisplayName = ref(false)
 const displayNameMessage = ref(null)
 const displayNameMessageType = ref('success') // 'success' or 'error'
+
+// Privacy settings state
+const privacyForm = ref({
+  profilePublic: true,
+  showStats: true,
+  allowFollow: true
+})
+const isSavingPrivacy = ref(false)
+const privacyMessage = ref(null)
+const privacyMessageType = ref('success') // 'success' or 'error'
 
 // Password change feedback
 const passwordChangeMessage = ref(null)
@@ -974,6 +1070,43 @@ const updateDisplayName = async () => {
   }
 }
 
+// Privacy settings methods
+const savePrivacySettings = async () => {
+  if (!user.value) return
+
+  try {
+    isSavingPrivacy.value = true
+    privacyMessage.value = null
+
+    // Update privacy settings via updateUserProfile
+    await updateUserProfile(user.value.uid, {
+      privacySettings: privacyForm.value
+    })
+
+    // Show success message
+    privacyMessageType.value = 'success'
+    privacyMessage.value = 'プライバシー設定を更新しました。'
+
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+      privacyMessage.value = null
+    }, 5000)
+  } catch (error) {
+    console.error('Failed to save privacy settings:', error)
+
+    // Show error message
+    privacyMessageType.value = 'error'
+    privacyMessage.value = 'プライバシー設定の更新に失敗しました。'
+
+    // Auto-hide after 8 seconds
+    setTimeout(() => {
+      privacyMessage.value = null
+    }, 8000)
+  } finally {
+    isSavingPrivacy.value = false
+  }
+}
+
 // Utility function to format file size
 const formatFileSize = (bytes) => {
   if (bytes === 0) return '0 Bytes'
@@ -1014,6 +1147,12 @@ const loadUserData = async () => {
       displayNameForm.value.displayName = userProfile.displayName
       displayNameForm.value.originalDisplayName = userProfile.displayName
       console.log('📝 DisplayName loaded:', userProfile.displayName)
+    }
+
+    // Load privacy settings
+    if (userProfile && userProfile.privacySettings) {
+      privacyForm.value = { ...privacyForm.value, ...userProfile.privacySettings }
+      console.log('📝 Privacy settings loaded:', userProfile.privacySettings)
     }
   } catch (error) {
     console.error('Failed to load user data:', error)

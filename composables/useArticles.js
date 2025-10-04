@@ -1143,11 +1143,11 @@ export function useArticles() {
 
       // Note: Firestore doesn't support full-text search natively
       // This is a basic implementation - in production, consider using Algolia or similar
-      const { categoryId, limit: pageLimit = 20 } = filters
+      const { categoryId, limit: pageLimit = 100 } = filters
 
       let constraints = [
         where('isPublic', '==', true),
-        orderBy('title'),
+        orderBy('publishedAt', 'desc'),
         limit(pageLimit)
       ]
 
@@ -1167,7 +1167,33 @@ export function useArticles() {
           (article.tags && article.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())))
         )
 
-      if (articles.length === 0) {
+      // Get author information for each article
+      const articlesWithAuthors = await Promise.all(
+        articles.map(async (article) => {
+          let author = null
+          try {
+            if (article.authorId) {
+              const authorDoc = doc(db, 'users', article.authorId)
+              const authorSnapshot = await getDoc(authorDoc)
+              if (authorSnapshot.exists()) {
+                author = {
+                  uid: authorSnapshot.id,
+                  ...authorSnapshot.data()
+                }
+              }
+            }
+          } catch (authorError) {
+            console.warn('Failed to get author info:', authorError)
+          }
+
+          return {
+            ...article,
+            author
+          }
+        })
+      )
+
+      if (articlesWithAuthors.length === 0) {
         return {
           articles: [],
           total: 0,
@@ -1177,8 +1203,8 @@ export function useArticles() {
       }
 
       return {
-        articles,
-        total: articles.length,
+        articles: articlesWithAuthors,
+        total: articlesWithAuthors.length,
         hasNext: false
       }
     } catch (error) {

@@ -53,10 +53,33 @@
     <div v-else-if="hasSearched && articles.length > 0">
       <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <ArticleCard
-          v-for="article in articles"
+          v-for="article in displayedArticles"
           :key="article.id"
           :article="article"
         />
+      </div>
+
+      <!-- Load More Button -->
+      <div v-if="hasMoreResults" class="mt-8 text-center">
+        <button
+          @click="loadMore"
+          :disabled="loadingMore"
+          class="inline-flex items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          <span v-if="loadingMore" class="inline-flex items-center">
+            <svg class="animate-spin -ml-1 mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            読み込み中...
+          </span>
+          <span v-else class="inline-flex items-center">
+            さらに読み込む
+            <svg class="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </span>
+        </button>
       </div>
     </div>
 
@@ -87,7 +110,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useArticles } from '~/composables/useArticles'
 
@@ -115,6 +138,18 @@ const currentSearchQuery = ref('')
 const articles = ref([])
 const loading = ref(false)
 const hasSearched = ref(false)
+const loadingMore = ref(false)
+const displayCount = ref(21)
+const pageSize = 21
+
+// Computed
+const displayedArticles = computed(() => {
+  return articles.value.slice(0, displayCount.value)
+})
+
+const hasMoreResults = computed(() => {
+  return articles.value.length > displayCount.value
+})
 
 // Methods
 const handleSearch = async () => {
@@ -124,6 +159,7 @@ const handleSearch = async () => {
     loading.value = true
     hasSearched.value = true
     currentSearchQuery.value = searchQuery.value
+    displayCount.value = 21
 
     // Update URL with search query
     router.push({ query: { q: searchQuery.value } })
@@ -145,7 +181,16 @@ const clearSearch = () => {
   currentSearchQuery.value = ''
   articles.value = []
   hasSearched.value = false
+  displayCount.value = 21
   router.push({ query: {} })
+}
+
+const loadMore = () => {
+  loadingMore.value = true
+  setTimeout(() => {
+    displayCount.value += pageSize
+    loadingMore.value = false
+  }, 300)
 }
 
 // Lifecycle
