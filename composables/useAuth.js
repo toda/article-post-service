@@ -120,20 +120,22 @@ export function useAuth() {
       clearError()
       validateDisplayName(displayName)
 
-      console.log(`Checking username availability for: "${displayName}"`)
+      // Convert displayName to username format
+      const username = displayName.toLowerCase().replace(/[^a-z0-9_-]/g, '_')
+      console.log(`Checking username availability for: "${username}" (from displayName: "${displayName}")`)
 
       if (!db) {
         throw new Error('Database not available - cannot verify username uniqueness. Please try again later.')
       }
 
       try {
-        // Check Firestore for existing users (only source of truth for usernames)
+        // Check Firestore for existing users by username (normalized)
         console.log('Checking Firestore for existing users')
         const usersRef = collection(db, 'users')
-        const q = query(usersRef, where('displayName', '==', displayName))
+        const q = query(usersRef, where('username', '==', username))
         const querySnapshot = await getDocs(q)
 
-        console.log(`Firestore query result for "${displayName}":`, querySnapshot.empty ? 'empty' : 'found matches')
+        console.log(`Firestore query result for username "${username}":`, querySnapshot.empty ? 'empty' : 'found matches')
         if (!querySnapshot.empty) {
           console.log('Existing documents:', querySnapshot.docs.map(doc => doc.data()))
         }
@@ -187,20 +189,16 @@ export function useAuth() {
   }
 
   // Sign up with email and password
-  const signUp = async ({ email, password, displayName }) => {
+  const signUp = async ({ email, password, username, displayName }) => {
     try {
       clearError()
       authLoading.value = true
 
       if (!auth) throw new Error('Firebase Auth not initialized')
 
-      // Validate display name
-      validateDisplayName(displayName)
-
-      // Check if username is available
-      const availability = await checkUsernameAvailability({ displayName })
-      if (!availability.available) {
-        throw new Error(AuthErrorCodes.USERNAME_ALREADY_EXISTS)
+      // Validate username (now separate from displayName)
+      if (!username || username.length < 3 || username.length > 20) {
+        throw new Error(AuthErrorCodes.INVALID_DISPLAY_NAME)
       }
 
       // Try to create user account with Firebase Authentication
@@ -249,6 +247,7 @@ export function useAuth() {
         uid: user.uid,
         email: user.email,
         displayName: displayName,
+        username: username.toLowerCase(),
         emailVerified: user.emailVerified,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -446,10 +445,35 @@ export function useAuth() {
 
       if (!userSnapshot.exists()) {
         console.log('Creating new user document in Firestore')
+
+        // Generate username from email address
+        let username = user.email.split('@')[0].toLowerCase().replace(/[^a-z0-9_-]/g, '_')
+
+        // Check if username already exists and make it unique if needed
+        let usernameExists = true
+        let usernameAttempt = username
+        let counter = 1
+
+        while (usernameExists) {
+          const usernameQuery = query(collection(db, 'users'), where('username', '==', usernameAttempt))
+          const usernameSnapshot = await getDocs(usernameQuery)
+
+          if (usernameSnapshot.empty) {
+            usernameExists = false
+            username = usernameAttempt
+          } else {
+            usernameAttempt = `${username}${counter}`
+            counter++
+          }
+        }
+
+        console.log('Generated unique username:', username)
+
         await setDoc(userDoc, {
           uid: user.uid,
           email: user.email,
-          displayName: user.displayName,
+          displayName: user.displayName || username,
+          username: username,
           avatarUrl: user.photoURL,
           emailVerified: user.emailVerified,
           providerId: providerId,

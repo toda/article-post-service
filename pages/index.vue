@@ -9,18 +9,12 @@
         <p class="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
           開発者のためのナレッジプラットフォーム。あなたの知識を記事にして、コミュニティと共有しましょう。
         </p>
-        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+        <div class="flex justify-center items-center">
           <NuxtLink
             to="/signup"
-            class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            class="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
           >
             今すぐ始める
-          </NuxtLink>
-          <NuxtLink
-            to="/explore"
-            class="inline-flex items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-          >
-            記事を探す
           </NuxtLink>
         </div>
       </div>

@@ -743,7 +743,8 @@ export function useArticles() {
         categoryId,
         tags,
         sortBy = 'recent',
-        isPublic = true
+        isPublic = true,
+        startAfter: startAfterDoc
       } = queryParams
 
       let constraints = []
@@ -773,6 +774,11 @@ export function useArticles() {
         case 'recent':
         default:
           constraints.push(orderBy('publishedAt', 'desc'))
+      }
+
+      // Pagination cursor
+      if (startAfterDoc) {
+        constraints.push(startAfter(startAfterDoc))
       }
 
       constraints.push(limit(pageLimit))

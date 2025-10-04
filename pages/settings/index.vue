@@ -159,6 +159,140 @@
                 <span v-else>自己紹介を更新</span>
               </button>
             </div>
+            <!-- Bio Update Message -->
+            <div
+              v-if="bioMessage"
+              :class="[
+                'mt-3 p-3 rounded-lg',
+                bioMessageType === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+              ]"
+            >
+              <p :class="['text-sm font-medium', bioMessageType === 'success' ? 'text-green-800' : 'text-red-800']">
+                {{ bioMessage }}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Username and Display Name Section -->
+      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h2 class="text-xl font-semibold text-gray-900 mb-6">ユーザー名と表示名</h2>
+
+        <div class="space-y-6">
+          <!-- Username Section -->
+          <div>
+            <label for="username" class="block text-sm font-medium text-gray-700 mb-2">
+              ユーザー名
+            </label>
+            <div class="flex space-x-3">
+              <div class="flex-1">
+                <input
+                  id="username"
+                  v-model="usernameForm.username"
+                  @input="handleUsernameInput"
+                  type="text"
+                  placeholder="username123"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  :class="{
+                    'border-red-300': usernameForm.error,
+                    'border-green-300': usernameForm.status === 'available'
+                  }"
+                >
+                <div v-if="usernameForm.error" class="mt-1 text-sm text-red-600">
+                  {{ usernameForm.error }}
+                </div>
+                <div v-else-if="usernameForm.status === 'checking'" class="mt-1 text-sm text-gray-500">
+                  確認中...
+                </div>
+                <div v-else-if="usernameForm.status === 'available'" class="mt-1 text-sm text-green-600">
+                  ✓ 利用可能です
+                </div>
+                <div v-else-if="usernameForm.status === 'taken'" class="mt-1 text-sm text-red-600">
+                  このユーザー名は既に使用されています
+                </div>
+                <div class="mt-1 text-xs text-gray-500">
+                  3-20文字、英数字・アンダースコア・ハイフンのみ（小文字）
+                </div>
+              </div>
+              <button
+                @click="updateUsername"
+                :disabled="!canUpdateUsername || isUpdatingUsername"
+                class="h-10 px-4 border border-transparent rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <span v-if="isUpdatingUsername" class="inline-flex items-center">
+                  <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  更新中...
+                </span>
+                <span v-else>更新</span>
+              </button>
+            </div>
+            <!-- Username Update Message -->
+            <div
+              v-if="usernameMessage"
+              :class="[
+                'mt-3 p-3 rounded-lg',
+                usernameMessageType === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+              ]"
+            >
+              <p :class="['text-sm font-medium', usernameMessageType === 'success' ? 'text-green-800' : 'text-red-800']">
+                {{ usernameMessage }}
+              </p>
+            </div>
+          </div>
+
+          <!-- Display Name Section -->
+          <div>
+            <label for="displayName" class="block text-sm font-medium text-gray-700 mb-2">
+              表示名
+            </label>
+            <div class="flex space-x-3">
+              <div class="flex-1">
+                <input
+                  id="displayName"
+                  v-model="displayNameForm.displayName"
+                  type="text"
+                  placeholder="表示名"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  :class="{ 'border-red-300': displayNameForm.error }"
+                >
+                <div v-if="displayNameForm.error" class="mt-1 text-sm text-red-600">
+                  {{ displayNameForm.error }}
+                </div>
+                <div class="mt-1 text-xs text-gray-500">
+                  1-50文字、プロフィールに表示される名前
+                </div>
+              </div>
+              <button
+                @click="updateDisplayName"
+                :disabled="!canUpdateDisplayName || isUpdatingDisplayName"
+                class="h-10 px-4 border border-transparent rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <span v-if="isUpdatingDisplayName" class="inline-flex items-center">
+                  <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 74 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  更新中...
+                </span>
+                <span v-else>更新</span>
+              </button>
+            </div>
+            <!-- DisplayName Update Message -->
+            <div
+              v-if="displayNameMessage"
+              :class="[
+                'mt-3 p-3 rounded-lg',
+                displayNameMessageType === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+              ]"
+            >
+              <p :class="['text-sm font-medium', displayNameMessageType === 'success' ? 'text-green-800' : 'text-red-800']">
+                {{ displayNameMessage }}
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -440,7 +574,9 @@ const {
 const {
   deleteUserData,
   getUserProfile,
-  updateUserProfile
+  updateUserProfile,
+  validateUsername,
+  checkUsernameAvailability
 } = useUsers()
 
 // State
@@ -469,6 +605,30 @@ const bioForm = ref({
   bio: ''
 })
 const isUpdatingBio = ref(false)
+const bioMessage = ref(null)
+const bioMessageType = ref('success') // 'success' or 'error'
+
+// Username form state
+const usernameForm = ref({
+  username: '',
+  originalUsername: '',
+  status: '', // 'checking', 'available', 'taken', 'unchanged'
+  error: ''
+})
+const isUpdatingUsername = ref(false)
+const usernameMessage = ref(null)
+const usernameMessageType = ref('success') // 'success' or 'error'
+let usernameCheckTimeout = null
+
+// DisplayName form state
+const displayNameForm = ref({
+  displayName: '',
+  originalDisplayName: '',
+  error: ''
+})
+const isUpdatingDisplayName = ref(false)
+const displayNameMessage = ref(null)
+const displayNameMessageType = ref('success') // 'success' or 'error'
 
 // Password change feedback
 const passwordChangeMessage = ref(null)
@@ -481,6 +641,19 @@ const isPasswordFormValid = computed(() => {
          passwordForm.value.confirmPassword &&
          passwordForm.value.newPassword === passwordForm.value.confirmPassword &&
          passwordForm.value.newPassword.length >= 6
+})
+
+const canUpdateUsername = computed(() => {
+  return usernameForm.value.username &&
+         usernameForm.value.username !== usernameForm.value.originalUsername &&
+         usernameForm.value.status === 'available' &&
+         !usernameForm.value.error
+})
+
+const canUpdateDisplayName = computed(() => {
+  return displayNameForm.value.displayName &&
+         displayNameForm.value.displayName !== displayNameForm.value.originalDisplayName &&
+         !displayNameForm.value.error
 })
 
 // Methods
@@ -632,19 +805,172 @@ const updateBio = async () => {
 
   try {
     isUpdatingBio.value = true
+    bioMessage.value = null
 
     await updateUserProfile(user.value.uid, {
       bio: bioForm.value.bio || ''
     })
 
-    console.log('Bio updated successfully')
+    // Show success message
+    bioMessageType.value = 'success'
+    bioMessage.value = '自己紹介を更新しました。'
 
-    // Show success message (optional - can add a toast notification later)
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+      bioMessage.value = null
+    }, 5000)
   } catch (error) {
     console.error('Failed to update bio:', error)
-    // TODO: Show error message
+
+    // Show error message
+    bioMessageType.value = 'error'
+    bioMessage.value = '自己紹介の更新に失敗しました。'
+
+    // Auto-hide after 8 seconds
+    setTimeout(() => {
+      bioMessage.value = null
+    }, 8000)
   } finally {
     isUpdatingBio.value = false
+  }
+}
+
+// Username methods
+const handleUsernameInput = () => {
+  const username = usernameForm.value.username.toLowerCase().trim()
+  usernameForm.value.username = username
+  usernameForm.value.error = ''
+  usernameForm.value.status = ''
+
+  // Clear previous timeout
+  if (usernameCheckTimeout) {
+    clearTimeout(usernameCheckTimeout)
+  }
+
+  // If username is the same as original, mark as unchanged
+  if (username === usernameForm.value.originalUsername) {
+    usernameForm.value.status = 'unchanged'
+    return
+  }
+
+  // Validate format
+  try {
+    validateUsername(username)
+  } catch (error) {
+    if (error.message.includes('required')) {
+      usernameForm.value.error = 'ユーザー名は必須です'
+    } else if (error.message.includes('too-short')) {
+      usernameForm.value.error = 'ユーザー名は3文字以上で入力してください'
+    } else if (error.message.includes('too-long')) {
+      usernameForm.value.error = 'ユーザー名は20文字以内で入力してください'
+    } else if (error.message.includes('invalid')) {
+      usernameForm.value.error = 'ユーザー名は英数字・アンダースコア・ハイフンのみ使用できます'
+    }
+    return
+  }
+
+  // Check availability with debouncing
+  usernameForm.value.status = 'checking'
+  usernameCheckTimeout = setTimeout(async () => {
+    try {
+      const isAvailable = await checkUsernameAvailability(username)
+      if (usernameForm.value.username === username) { // Only update if username hasn't changed
+        usernameForm.value.status = isAvailable ? 'available' : 'taken'
+      }
+    } catch (error) {
+      console.error('Failed to check username availability:', error)
+      usernameForm.value.error = 'ユーザー名の確認に失敗しました'
+    }
+  }, 500)
+}
+
+const updateUsername = async () => {
+  if (!user.value || !canUpdateUsername.value) return
+
+  try {
+    isUpdatingUsername.value = true
+    usernameMessage.value = null
+
+    await updateUserProfile(user.value.uid, {
+      username: usernameForm.value.username.toLowerCase()
+    })
+
+    // Update original username
+    usernameForm.value.originalUsername = usernameForm.value.username.toLowerCase()
+    usernameForm.value.status = 'unchanged'
+
+    // Show success message
+    usernameMessageType.value = 'success'
+    usernameMessage.value = 'ユーザー名を更新しました。'
+
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+      usernameMessage.value = null
+    }, 5000)
+  } catch (error) {
+    console.error('Failed to update username:', error)
+
+    // Show error message
+    usernameMessageType.value = 'error'
+    usernameMessage.value = 'ユーザー名の更新に失敗しました。'
+
+    // Auto-hide after 8 seconds
+    setTimeout(() => {
+      usernameMessage.value = null
+    }, 8000)
+  } finally {
+    isUpdatingUsername.value = false
+  }
+}
+
+// DisplayName methods
+const updateDisplayName = async () => {
+  if (!user.value || !canUpdateDisplayName.value) return
+
+  // Validate displayName
+  if (!displayNameForm.value.displayName.trim()) {
+    displayNameForm.value.error = '表示名は必須です'
+    return
+  }
+
+  if (displayNameForm.value.displayName.trim().length > 50) {
+    displayNameForm.value.error = '表示名は50文字以内で入力してください'
+    return
+  }
+
+  try {
+    isUpdatingDisplayName.value = true
+    displayNameForm.value.error = ''
+    displayNameMessage.value = null
+
+    await updateUserProfile(user.value.uid, {
+      displayName: displayNameForm.value.displayName.trim()
+    })
+
+    // Update original displayName
+    displayNameForm.value.originalDisplayName = displayNameForm.value.displayName.trim()
+
+    // Show success message
+    displayNameMessageType.value = 'success'
+    displayNameMessage.value = '表示名を更新しました。'
+
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+      displayNameMessage.value = null
+    }, 5000)
+  } catch (error) {
+    console.error('Failed to update display name:', error)
+
+    // Show error message
+    displayNameMessageType.value = 'error'
+    displayNameMessage.value = '表示名の更新に失敗しました。'
+
+    // Auto-hide after 8 seconds
+    setTimeout(() => {
+      displayNameMessage.value = null
+    }, 8000)
+  } finally {
+    isUpdatingDisplayName.value = false
   }
 }
 
@@ -657,15 +983,16 @@ const formatFileSize = (bytes) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
-// Load bio data
-const loadBioData = async () => {
+// Load user data
+const loadUserData = async () => {
   if (!user.value) return
 
   try {
-    console.log('📝 Loading bio for user:', user.value.uid)
+    console.log('📝 Loading user data for:', user.value.uid)
     const userProfile = await getUserProfile(user.value.uid)
     console.log('📝 User profile loaded:', userProfile)
 
+    // Load bio
     if (userProfile && userProfile.bio) {
       bioForm.value.bio = userProfile.bio
       console.log('📝 Bio loaded:', userProfile.bio)
@@ -673,16 +1000,31 @@ const loadBioData = async () => {
       bioForm.value.bio = ''
       console.log('📝 No bio found, setting empty string')
     }
+
+    // Load username
+    if (userProfile && userProfile.username) {
+      usernameForm.value.username = userProfile.username
+      usernameForm.value.originalUsername = userProfile.username
+      usernameForm.value.status = 'unchanged'
+      console.log('📝 Username loaded:', userProfile.username)
+    }
+
+    // Load displayName
+    if (userProfile && userProfile.displayName) {
+      displayNameForm.value.displayName = userProfile.displayName
+      displayNameForm.value.originalDisplayName = userProfile.displayName
+      console.log('📝 DisplayName loaded:', userProfile.displayName)
+    }
   } catch (error) {
-    console.error('Failed to load user bio:', error)
+    console.error('Failed to load user data:', error)
   }
 }
 
-// Watch user changes to load bio
+// Watch user changes to load user data
 watch(user, async (newUser) => {
   if (newUser) {
-    console.log('👤 User changed, loading bio data...')
-    await loadBioData()
+    console.log('👤 User changed, loading user data...')
+    await loadUserData()
   }
 }, { immediate: true })
 
@@ -690,8 +1032,8 @@ watch(user, async (newUser) => {
 onMounted(async () => {
   // Initial load if user is already available
   if (user.value) {
-    console.log('📝 onMounted: User already available, loading bio')
-    await loadBioData()
+    console.log('📝 onMounted: User already available, loading user data')
+    await loadUserData()
   }
 })
 </script>

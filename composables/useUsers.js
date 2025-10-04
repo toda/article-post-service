@@ -46,6 +46,13 @@ export const UserErrorCodes = {
   BIO_TOO_LONG: 'profile/bio-too-long',
   INVALID_URL: 'profile/invalid-url',
 
+  // Username Errors
+  USERNAME_REQUIRED: 'username/required',
+  USERNAME_TAKEN: 'username/taken',
+  USERNAME_INVALID: 'username/invalid',
+  USERNAME_TOO_SHORT: 'username/too-short',
+  USERNAME_TOO_LONG: 'username/too-long',
+
   // Avatar Errors
   AVATAR_UPLOAD_FAILED: 'avatar/upload-failed',
   AVATAR_FILE_TOO_LARGE: 'avatar/file-too-large',
@@ -142,6 +149,112 @@ export function useUsers() {
       return true
     } catch (_) {
       return false
+    }
+  }
+
+  // Username validation
+  const validateUsername = (username) => {
+    if (!username) {
+      throw new Error(UserErrorCodes.USERNAME_REQUIRED)
+    }
+
+    if (username.length < 3) {
+      throw new Error(UserErrorCodes.USERNAME_TOO_SHORT)
+    }
+
+    if (username.length > 20) {
+      throw new Error(UserErrorCodes.USERNAME_TOO_LONG)
+    }
+
+    // Only allow alphanumeric characters, underscores, and hyphens
+    const usernameRegex = /^[a-zA-Z0-9_-]+$/
+    if (!usernameRegex.test(username)) {
+      throw new Error(UserErrorCodes.USERNAME_INVALID)
+    }
+
+    return true
+  }
+
+  // Check if username is available
+  const checkUsernameAvailability = async (username) => {
+    try {
+      validateUsername(username)
+
+      const q = query(
+        collection(db, 'users'),
+        where('username', '==', username.toLowerCase()),
+        limit(1)
+      )
+      const snapshot = await getDocs(q)
+
+      return snapshot.empty
+    } catch (error) {
+      throw error
+    }
+  }
+
+  // Generate username from display name
+  const generateUsername = (displayName) => {
+    // Remove special characters and spaces, convert to lowercase
+    let username = displayName
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_|_$/g, '')
+
+    // Ensure minimum length
+    if (username.length < 3) {
+      username = username + '_user'
+    }
+
+    // Ensure maximum length
+    if (username.length > 20) {
+      username = username.substring(0, 20)
+    }
+
+    return username
+  }
+
+  // Get user profile by username
+  const getUserProfileByUsername = async (username) => {
+    try {
+      clearError()
+      usersLoading.value = true
+
+      const q = query(
+        collection(db, 'users'),
+        where('username', '==', username.toLowerCase()),
+        limit(1)
+      )
+      const snapshot = await getDocs(q)
+
+      if (snapshot.empty) {
+        throw new Error(UserErrorCodes.USER_NOT_FOUND)
+      }
+
+      const userDoc = snapshot.docs[0]
+      const userData = userDoc.data()
+      const userId = userDoc.id
+
+      // Check if current user is following this user
+      let isFollowing = false
+      if (currentUser.value) {
+        const followId = `${currentUser.value.uid}_${userId}`
+        const followDoc = doc(db, 'follows', followId)
+        const followSnapshot = await getDoc(followDoc)
+        isFollowing = followSnapshot.exists()
+      }
+
+      return {
+        uid: userId,
+        ...userData,
+        isFollowing
+      }
+    } catch (error) {
+      setError(error)
+      throw error
+    } finally {
+      usersLoading.value = false
     }
   }
 
@@ -745,6 +858,7 @@ export function useUsers() {
 
     // Methods
     getUserProfile,
+    getUserProfileByUsername,
     updateUserProfile,
     uploadAvatar,
     deleteAvatar,
@@ -757,6 +871,9 @@ export function useUsers() {
     updatePrivacySettings,
     exportUserData,
     deleteUserData,
+    validateUsername,
+    checkUsernameAvailability,
+    generateUsername,
     clearError
   }
 }

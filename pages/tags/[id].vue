@@ -163,8 +163,38 @@ const loadArticles = async () => {
 }
 
 const loadMore = async () => {
-  // TODO: Implement pagination with cursor support
-  hasMore.value = false
+  if (!lastDoc.value || loadingMore.value) return
+
+  try {
+    loadingMore.value = true
+
+    // Load next batch of articles using cursor
+    const result = await listArticles({
+      tags: [tagId],
+      limit: pageSize,
+      isPublic: true,
+      startAfter: lastDoc.value
+    })
+
+    const articlesData = result?.articles || []
+
+    // Append new articles to existing ones
+    articles.value = [...articles.value, ...articlesData]
+
+    // Update pagination state
+    hasMore.value = result?.hasNext || false
+
+    // Update last document cursor
+    if (result?.nextCursor) {
+      lastDoc.value = result.nextCursor
+    } else {
+      hasMore.value = false
+    }
+  } catch (error) {
+    console.error('Failed to load more articles:', error)
+  } finally {
+    loadingMore.value = false
+  }
 }
 
 const getTagColor = (tagName) => {

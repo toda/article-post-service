@@ -40,7 +40,7 @@
         <!-- Author and Actions -->
         <div class="flex items-center justify-between">
           <div class="flex items-center space-x-4" data-testid="author-info">
-            <NuxtLink :to="`/users/${article.author?.uid}`" class="flex items-center space-x-3 hover:opacity-80 transition-opacity">
+            <NuxtLink :to="`/users/${article.author?.username || article.author?.uid}`" class="flex items-center space-x-3 hover:opacity-80 transition-opacity">
               <img
                 v-if="article.author?.avatarUrl || article.avatarUrl"
                 :src="article.author?.avatarUrl || article.avatarUrl"

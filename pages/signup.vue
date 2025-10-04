@@ -98,6 +98,30 @@
             </div>
           </div>
 
+          <!-- Display Name -->
+          <div>
+            <label for="displayName" class="block text-sm font-medium text-gray-700">
+              表示名
+            </label>
+            <input
+              id="displayName"
+              v-model="form.displayName"
+              type="text"
+              required
+              autocomplete="name"
+              class="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              :class="{ 'border-red-300': errors.displayName }"
+              placeholder="表示名を入力"
+              data-testid="displayname-input"
+            />
+            <p v-if="errors.displayName" class="mt-1 text-sm text-red-600" data-testid="displayname-error">
+              {{ errors.displayName }}
+            </p>
+            <div class="mt-1 text-xs text-gray-500">
+              プロフィールに表示される名前です
+            </div>
+          </div>
+
           <!-- Email -->
           <div>
             <label for="email" class="block text-sm font-medium text-gray-700">
@@ -312,6 +336,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuth } from '~/composables/useAuth'
+import { useUsers } from '~/composables/useUsers'
 
 // SEO
 useHead({
@@ -330,10 +355,12 @@ const route = useRoute()
 
 // Composables - Firebase Auth enabled (GitHub auth disabled for now)
 const { signUp, signInWithProvider, isLoggedIn, loading } = useAuth()
+const { checkUsernameAvailability: checkUsername } = useUsers()
 
 // State
 const form = ref({
   username: '',
+  displayName: '',
   email: '',
   password: '',
   confirmPassword: '',
@@ -344,6 +371,7 @@ const form = ref({
 if (process.server) {
   form.value = {
     username: '',
+    displayName: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -354,7 +382,14 @@ if (process.server) {
 const showPassword = ref(false)
 const showConfirmPassword = ref(false)
 const socialLoading = ref(false)
-const errors = ref({})
+const errors = ref({
+  username: '',
+  displayName: '',
+  email: '',
+  password: '',
+  confirmPassword: '',
+  terms: ''
+})
 const generalError = ref('')
 const successMessage = ref('')
 const usernameStatus = ref('') // '', 'checking', 'available', 'taken'
@@ -370,6 +405,12 @@ const validateForm = () => {
     errors.value.username = 'ユーザー名の形式が正しくありません'
   } else if (usernameStatus.value !== 'available') {
     errors.value.username = 'ユーザー名の利用可能性を確認してください'
+  }
+
+  if (!form.value.displayName.trim()) {
+    errors.value.displayName = '表示名は必須です'
+  } else if (form.value.displayName.trim().length > 50) {
+    errors.value.displayName = '表示名は50文字以内で入力してください'
   }
 
   if (!form.value.email) {
@@ -410,30 +451,8 @@ const isValidUsername = (username) => {
   return username.length >= 3 && username.length <= 20 && usernameRegex.test(username)
 }
 
-// ユーザー名の重複チェック（Firebase実装）
-const { checkUsernameAvailability: firebaseCheckUsername } = useAuth()
-const mockCheckUsername = async (username) => {
-  await new Promise(resolve => setTimeout(resolve, 500)) // ネットワーク遅延をシミュレート
-
-  try {
-    // Use Firebase-based check if available
-    if (firebaseCheckUsername) {
-      const result = await firebaseCheckUsername({ displayName: username })
-      return result.available
-    }
-
-    // Fallback: reserved usernames check
-    const reservedUsernames = ['admin', 'user', 'test', 'demo', 'example', 'sample', 'root', 'system']
-    return !reservedUsernames.includes(username.toLowerCase())
-  } catch (error) {
-    console.error('Username check failed:', error)
-    // If Firebase check fails, just allow it and let signUp handle the error
-    return true
-  }
-}
-
 const checkUsernameAvailability = async () => {
-  const username = form.value.username.trim()
+  const username = form.value.username.trim().toLowerCase()
 
   // タイマーをクリア
   if (usernameCheckTimeout.value) {
@@ -450,8 +469,8 @@ const checkUsernameAvailability = async () => {
   // デバウンス（500ms待機）
   usernameCheckTimeout.value = setTimeout(async () => {
     try {
-      const result = await firebaseCheckUsername({ displayName: username })
-      usernameStatus.value = result.available ? 'available' : 'taken'
+      const available = await checkUsername(username)
+      usernameStatus.value = available ? 'available' : 'taken'
     } catch (error) {
       console.error('Username check failed:', error)
       usernameStatus.value = ''
@@ -474,8 +493,8 @@ const handleSubmit = async () => {
   // Final username availability check before submission
   if (usernameStatus.value !== 'available') {
     try {
-      const result = await firebaseCheckUsername({ displayName: form.value.username.trim() })
-      if (!result.available) {
+      const available = await checkUsername(form.value.username.trim().toLowerCase())
+      if (!available) {
         generalError.value = 'このユーザー名は既に使用されています。別のユーザー名を選択してください。'
         usernameStatus.value = 'taken'
         return
@@ -492,7 +511,8 @@ const handleSubmit = async () => {
     const result = await signUp({
       email: form.value.email,
       password: form.value.password,
-      displayName: form.value.username.trim()  // useAuth expects displayName
+      username: form.value.username.trim().toLowerCase(),
+      displayName: form.value.displayName.trim()
     })
 
     // Show success message with email verification notice
@@ -508,8 +528,10 @@ ${form.value.email} に送信された認証メールを確認し、
   } catch (error) {
     console.error('Signup failed:', error)
 
+    // Firebase エラーコードを日本語メッセージに変換
     if (error.code === 'auth/email-already-in-use') {
-      errors.value.email = error.message || 'このメールアドレスは既に使用されています'
+      errors.value.email = 'このメールアドレスは既に使用されています'
+      generalError.value = 'このメールアドレスは既に登録されています。ログインするか、別のメールアドレスを使用してください。'
     } else if (error.code === 'auth/username-already-exists' || error.message.includes('Username is already taken')) {
       errors.value.username = 'このユーザー名は既に使用されています'
       usernameStatus.value = 'taken'
@@ -517,11 +539,18 @@ ${form.value.email} に送信された認証メールを確認し、
     } else if (error.message.includes('Unable to verify username uniqueness')) {
       generalError.value = 'ユーザー名の確認に失敗しました。データベース接続を確認してから再試行してください。'
     } else if (error.code === 'auth/weak-password') {
-      errors.value.password = 'パスワードが弱すぎます'
+      errors.value.password = 'パスワードが弱すぎます。8文字以上、大文字・数字を含めてください。'
+      generalError.value = 'パスワードは8文字以上で、大文字と数字を含める必要があります。'
     } else if (error.code === 'auth/invalid-email') {
       errors.value.email = '有効なメールアドレスを入力してください'
+      generalError.value = 'メールアドレスの形式が正しくありません。'
+    } else if (error.code === 'auth/operation-not-allowed') {
+      generalError.value = 'メール/パスワード認証が有効になっていません。管理者にお問い合わせください。'
+    } else if (error.code === 'auth/network-request-failed') {
+      generalError.value = 'ネットワークエラーが発生しました。インターネット接続を確認してください。'
     } else {
-      generalError.value = error.message || 'アカウント作成に失敗しました。しばらく時間をおいて再試行してください'
+      // その他のエラーは一般的なメッセージを表示（Firebaseの生エラーを表示しない）
+      generalError.value = 'アカウント作成に失敗しました。入力内容を確認して再試行してください。'
     }
   } finally {
     loading.value = false
@@ -583,6 +612,7 @@ const closeSuccessModal = () => {
   // Reset form for new signup
   form.value = {
     username: '',
+    displayName: '',
     email: '',
     password: '',
     confirmPassword: '',

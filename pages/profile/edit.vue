@@ -154,7 +154,7 @@
           <!-- Form Actions -->
           <div class="flex items-center justify-between pt-6 border-t border-gray-200">
             <NuxtLink
-              :to="`/users/${user?.uid}`"
+              :to="`/users/${userUsername || user?.uid}`"
               class="text-gray-600 hover:text-gray-900 font-medium transition-colors"
             >
               キャンセル
@@ -301,6 +301,7 @@ const {
 } = useUsers()
 
 // State
+const userUsername = ref('')
 const form = ref({
   displayName: '',
   bio: '',
@@ -375,8 +376,8 @@ const handleSubmit = async () => {
     // Update original form to reflect saved state
     originalForm.value = { ...form.value }
 
-    // Redirect to profile page
-    await router.push(`/users/${user.value.uid}`)
+    // Redirect to profile page using username
+    await router.push(`/users/${userUsername.value || user.value.uid}`)
   } catch (error) {
     console.error('Failed to update profile:', error)
     if (error.code === 'profile/display-name-required') {
@@ -413,6 +414,9 @@ const loadUserProfile = async () => {
 
   try {
     const profile = await getUserProfile(user.value.uid)
+
+    // Save username for later use
+    userUsername.value = profile.username || user.value.uid
 
     form.value = {
       displayName: profile.displayName || '',

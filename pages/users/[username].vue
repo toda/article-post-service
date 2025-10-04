@@ -309,14 +309,15 @@ import { useAuth } from '~/composables/useAuth'
 import { useUsers } from '~/composables/useUsers'
 import { useArticles } from '~/composables/useArticles'
 
-// Get route and user ID
+// Get route and username
 const route = useRoute()
-const userId = route.params.id
+const username = route.params.username
 
 // Composables
 const { user, isLoggedIn } = useAuth()
 const {
   getUserProfile,
+  getUserProfileByUsername,
   followUser,
   unfollowUser,
   getUserStats,
@@ -458,11 +459,11 @@ const shareProfile = async () => {
 
 const loadUserProfile = async () => {
   try {
-    userProfile.value = await getUserProfile(userId)
+    userProfile.value = await getUserProfileByUsername(username)
 
     // Load user stats if own profile
     if (isOwnProfile.value) {
-      userStats.value = await getUserStats(userId)
+      userStats.value = await getUserStats(userProfile.value.uid)
     }
   } catch (error) {
     console.error('Failed to load user profile:', error)
@@ -470,9 +471,11 @@ const loadUserProfile = async () => {
 }
 
 const loadUserArticles = async () => {
+  if (!userProfile.value) return
+
   try {
     // Always show only public articles
-    const result = await getUserArticles(userId, {
+    const result = await getUserArticles(userProfile.value.uid, {
       isPublic: true,
       limit: 20
     })
@@ -485,12 +488,12 @@ const loadUserArticles = async () => {
 }
 
 const loadMoreArticles = async () => {
-  if (!hasMoreArticles.value || loadingMoreArticles.value) return
+  if (!hasMoreArticles.value || loadingMoreArticles.value || !userProfile.value) return
 
   try {
     loadingMoreArticles.value = true
     // Always show only public articles
-    const result = await getUserArticles(userId, {
+    const result = await getUserArticles(userProfile.value.uid, {
       isPublic: true,
       limit: 20,
       startAfter: lastArticleDoc.value
@@ -530,8 +533,8 @@ watch(userProfile, (newProfile) => {
 })
 
 // Watch for route changes (user navigation or refresh)
-watch(() => route.params.id, async (newId, oldId) => {
-  if (newId && newId !== oldId) {
+watch(() => route.params.username, async (newUsername, oldUsername) => {
+  if (newUsername && newUsername !== oldUsername) {
     await loadUserProfile()
     await loadUserArticles()
   }
