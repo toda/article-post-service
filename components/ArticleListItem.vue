@@ -154,8 +154,24 @@ const getCategoryColor = (categoryId) => {
 const formatDate = (date) => {
   if (!date) return ''
 
+  // Handle Firestore Timestamp objects
+  let articleDate
+  if (date?.toDate && typeof date.toDate === 'function') {
+    articleDate = date.toDate()
+  } else if (date?.seconds) {
+    articleDate = new Date(date.seconds * 1000)
+  } else if (date instanceof Date) {
+    articleDate = date
+  } else {
+    articleDate = new Date(date)
+  }
+
+  // Validate the date
+  if (isNaN(articleDate.getTime())) {
+    return ''
+  }
+
   const now = new Date()
-  const articleDate = date instanceof Date ? date : new Date(date)
   const diff = now - articleDate
 
   // Less than 1 minute

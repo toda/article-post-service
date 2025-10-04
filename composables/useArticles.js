@@ -1059,30 +1059,63 @@ export function useArticles() {
       clearError()
       articlesLoading.value = true
 
-      const { page = 1, limit: pageLimit = 10, isPublic } = queryParams
+      const { page = 1, limit: pageLimit = 10, isPublic, startAfter: startAfterDoc } = queryParams
 
       let constraints = [
         where('authorId', '==', userId),
-        orderBy('createdAt', 'desc'),
-        limit(pageLimit)
+        orderBy('createdAt', 'desc')
       ]
 
       if (isPublic !== undefined) {
         constraints.push(where('isPublic', '==', isPublic))
       }
 
+      if (startAfterDoc) {
+        constraints.push(startAfter(startAfterDoc))
+      }
+
+      constraints.push(limit(pageLimit))
+
       const q = query(collection(db, 'articles'), ...constraints)
       const snapshot = await getDocs(q)
 
-      const articles = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }))
+      // Fetch author information for each article
+      const articles = await Promise.all(
+        snapshot.docs.map(async (docSnapshot) => {
+          const data = docSnapshot.data()
+
+          // Get author information
+          let author = null
+          if (data.authorId) {
+            try {
+              const authorDoc = await getDoc(doc(db, 'users', data.authorId))
+              if (authorDoc.exists()) {
+                const authorData = authorDoc.data()
+                author = {
+                  uid: data.authorId,
+                  displayName: authorData.displayName || 'Anonymous',
+                  avatarUrl: authorData.avatarUrl || null,
+                  bio: authorData.bio || null
+                }
+              }
+            } catch (error) {
+              console.warn('Failed to fetch author for article:', docSnapshot.id, error)
+            }
+          }
+
+          return {
+            id: docSnapshot.id,
+            ...data,
+            author
+          }
+        })
+      )
 
       return {
         articles,
         total: articles.length,
-        hasNext: snapshot.docs.length === pageLimit
+        hasNext: snapshot.docs.length === pageLimit,
+        nextCursor: snapshot.docs.length > 0 ? snapshot.docs[snapshot.docs.length - 1] : null
       }
     } catch (error) {
       setError(error)

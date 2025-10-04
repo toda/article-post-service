@@ -224,22 +224,7 @@
       <!-- User Articles -->
       <div class="bg-white rounded-lg border border-gray-200 overflow-hidden" data-testid="user-articles">
         <div class="p-6 border-b border-gray-200">
-          <div class="flex items-center justify-between">
-            <h2 class="text-xl font-bold text-gray-900">記事一覧</h2>
-            <div class="flex items-center space-x-2">
-              <label for="article-filter" class="text-sm text-gray-600">表示:</label>
-              <select
-                id="article-filter"
-                v-model="articleFilter"
-                @change="loadUserArticles"
-                class="text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              >
-                <option value="public">公開記事</option>
-                <option v-if="isOwnProfile" value="all">すべて</option>
-                <option v-if="isOwnProfile" value="private">下書き</option>
-              </select>
-            </div>
-          </div>
+          <h2 class="text-xl font-bold text-gray-900">記事一覧</h2>
         </div>
 
         <!-- Articles Loading -->
@@ -252,13 +237,31 @@
         </div>
 
         <!-- Articles List -->
-        <div v-else-if="userArticles.length > 0" class="divide-y divide-gray-200">
-          <ArticleListItem
-            v-for="article in userArticles"
-            :key="article.id"
-            :article="article"
-            data-testid="article-card"
-          />
+        <div v-else-if="userArticles.length > 0">
+          <div class="divide-y divide-gray-200">
+            <ArticleListItem
+              v-for="article in userArticles"
+              :key="article.id"
+              :article="article"
+              data-testid="article-card"
+            />
+          </div>
+
+          <!-- Load More Button -->
+          <div v-if="hasMoreArticles" class="p-6 text-center border-t border-gray-200">
+            <button
+              @click="loadMoreArticles"
+              :disabled="loadingMoreArticles"
+              class="inline-flex items-center px-6 py-3 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg v-if="loadingMoreArticles" class="animate-spin -ml-1 mr-3 h-5 w-5 text-gray-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <span v-if="loadingMoreArticles">読み込み中...</span>
+              <span v-else>さらに読み込む</span>
+            </button>
+          </div>
         </div>
 
         <!-- Empty Articles -->
@@ -329,8 +332,10 @@ const {
 const userProfile = ref(null)
 const userStats = ref(null)
 const userArticles = ref([])
-const articleFilter = ref('public')
 const followLoading = ref(false)
+const hasMoreArticles = ref(false)
+const loadingMoreArticles = ref(false)
+const lastArticleDoc = ref(null)
 
 // Computed
 const isOwnProfile = computed(() => {
@@ -350,7 +355,24 @@ const formatNumber = (num) => {
 
 const formatJoinDate = (date) => {
   if (!date) return ''
-  const joinDate = date instanceof Date ? date : new Date(date)
+
+  // Handle Firestore Timestamp
+  let joinDate
+  if (date?.toDate && typeof date.toDate === 'function') {
+    joinDate = date.toDate()
+  } else if (date?.seconds) {
+    joinDate = new Date(date.seconds * 1000)
+  } else if (date instanceof Date) {
+    joinDate = date
+  } else {
+    joinDate = new Date(date)
+  }
+
+  // Check if valid date
+  if (isNaN(joinDate.getTime())) {
+    return ''
+  }
+
   return joinDate.toLocaleDateString('ja-JP', {
     year: 'numeric',
     month: 'long'
@@ -359,7 +381,24 @@ const formatJoinDate = (date) => {
 
 const formatActivityDate = (date) => {
   if (!date) return ''
-  const activityDate = date instanceof Date ? date : new Date(date)
+
+  // Handle Firestore Timestamp
+  let activityDate
+  if (date?.toDate && typeof date.toDate === 'function') {
+    activityDate = date.toDate()
+  } else if (date?.seconds) {
+    activityDate = new Date(date.seconds * 1000)
+  } else if (date instanceof Date) {
+    activityDate = date
+  } else {
+    activityDate = new Date(date)
+  }
+
+  // Check if valid date
+  if (isNaN(activityDate.getTime())) {
+    return ''
+  }
+
   return activityDate.toLocaleDateString('ja-JP', {
     month: 'short',
     day: 'numeric'
@@ -432,14 +471,38 @@ const loadUserProfile = async () => {
 
 const loadUserArticles = async () => {
   try {
-    const isPublic = !isOwnProfile.value || articleFilter.value === 'public'
+    // Always show only public articles
     const result = await getUserArticles(userId, {
-      isPublic: articleFilter.value === 'private' ? false : isPublic,
+      isPublic: true,
       limit: 20
     })
     userArticles.value = result.articles
+    hasMoreArticles.value = result.hasNext
+    lastArticleDoc.value = result.nextCursor
   } catch (error) {
     console.error('Failed to load user articles:', error)
+  }
+}
+
+const loadMoreArticles = async () => {
+  if (!hasMoreArticles.value || loadingMoreArticles.value) return
+
+  try {
+    loadingMoreArticles.value = true
+    // Always show only public articles
+    const result = await getUserArticles(userId, {
+      isPublic: true,
+      limit: 20,
+      startAfter: lastArticleDoc.value
+    })
+
+    userArticles.value = [...userArticles.value, ...result.articles]
+    hasMoreArticles.value = result.hasNext
+    lastArticleDoc.value = result.nextCursor
+  } catch (error) {
+    console.error('Failed to load more articles:', error)
+  } finally {
+    loadingMoreArticles.value = false
   }
 }
 
@@ -466,9 +529,28 @@ watch(userProfile, (newProfile) => {
   }
 })
 
+// Watch for route changes (user navigation or refresh)
+watch(() => route.params.id, async (newId, oldId) => {
+  if (newId && newId !== oldId) {
+    await loadUserProfile()
+    await loadUserArticles()
+  }
+})
+
+// Watch for auth state changes
+watch([user, isLoggedIn], async ([newUser, newIsLoggedIn]) => {
+  // Reload profile when auth state changes to get correct follow status
+  if (userProfile.value) {
+    await loadUserProfile()
+  }
+})
+
 // Lifecycle
-onMounted(() => {
-  loadUserProfile()
-  loadUserArticles()
+onMounted(async () => {
+  // Wait a bit for auth to initialize
+  await new Promise(resolve => setTimeout(resolve, 100))
+
+  await loadUserProfile()
+  await loadUserArticles()
 })
 </script>

@@ -163,7 +163,8 @@ export function useUsers() {
       // Check if current user is following this user
       let isFollowing = false
       if (currentUser.value) {
-        const followDoc = doc(db, 'follows', `${currentUser.value.uid}_${userId}`)
+        const followId = `${currentUser.value.uid}_${userId}`
+        const followDoc = doc(db, 'follows', followId)
         const followSnapshot = await getDoc(followDoc)
         isFollowing = followSnapshot.exists()
       }
